@@ -19,7 +19,6 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
-        resourceConfigurations += setOf("en", "fa")
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
