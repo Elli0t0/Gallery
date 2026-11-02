@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import com.elli0t0.gallery.R
 import java.io.ByteArrayOutputStream
 import kotlin.math.pow
 import kotlin.math.sqrt
