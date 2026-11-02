@@ -3,6 +3,7 @@ package com.elli0t0.gallery.ui
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -136,7 +137,7 @@ private sealed interface PicRow {
     data class GridRow(val items: List<MediaItem>) : PicRow
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PicturesScreen(
     items: List<MediaItem>,
