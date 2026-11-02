@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Gallery</string>
+    <string name="pictures">تصاویر</string>
+    <string name="albums">آلبوم‌ها</string>
+    <string name="menu">منو</string>
+    <string name="today">امروز</string>
+    <string name="yesterday">دیروز</string>
+    <string name="essential_albums">آلبوم‌های ضروری</string>
+    <string name="view_all">مشاهده همه</string>
+    <string name="show_less">کمتر نشان بده</string>
+    <string name="all_albums">همه آلبوم‌ها</string>
+    <string name="recent">اخیر</string>
+    <string name="favorites">علاقه‌مندی‌ها</string>
+    <string name="camera">دوربین</string>
+    <string name="screenshots">اسکرین‌شات‌ها</string>
+    <string name="download">دانلودها</string>
+    <string name="videos">ویدیوها</string>
+    <string name="locations">مکان‌ها</string>
+    <string name="trash">سطل زباله</string>
+    <string name="settings">تنظیمات</string>
+    <string name="allow_access">اجازه دسترسی</string>
+    <string name="permission_title">عکس‌ها و ویدیوها</string>
+    <string name="permission_text">گالری برای نمایش عکس‌ها و ویدیوهای شما به دسترسی نیاز دارد. چیزی از گوشی شما خارج نمی‌شود.</string>
+    <string name="permission_open_settings">باز کردن تنظیمات</string>
+    <string name="empty_gallery">هنوز عکس یا ویدیویی نیست</string>
+    <string name="coming_phase2">در مرحله ۲ می‌آید</string>
+    <string name="search">جستجو</string>
+    <string name="more">بیشتر</string>
+</resources>
