@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.2]
+
+- Selection mode: long-press to select, "N selected" title, select-all checkbox, Cancel, bottom pill with Create, Share, Delete, and More.
+- More menu: Copy to album, Move to album, Add to favorites, Remove from favorites; Create copies the selection into a new album.
+- Delete moves items to Trash (30 days, with days-left and Restore); trash auto-deletes items older than 30 days, and can be emptied or deleted permanently.
+- Menu destinations are real now: Videos, Favorites, Recent (last 30 days), Locations (items with GPS coordinates), Trash, Settings.
+- Search: live search by file name and album, opening results in the viewer.
+- Settings: Auto play motion photos, Essential albums, and Merge albums toggles (persisted), plus Privacy Policy, Permissions, and About.
+- Releases are full releases, not pre-releases, and the publish step skips if the release already exists.
+
 ## [0.0.1]
 
 - Baseline: project setup, CI + signed release pipeline, media permissions flow.

@@ -2,8 +2,11 @@ package com.elli0t0.gallery.ui
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -34,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -45,16 +49,23 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -130,7 +141,15 @@ private sealed interface PicRow {
 fun PicturesScreen(
     items: List<MediaItem>,
     onOpen: (List<MediaItem>, Int) -> Unit,
-    onMenu: () -> Unit
+    onSearch: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    titleText: String? = null,
+    titleRes: Int = R.string.pictures,
+    albumNames: List<String> = emptyList(),
+    onMoveToTrash: (List<MediaItem>) -> Unit = {},
+    onCopyToAlbum: (List<MediaItem>, String, Boolean) -> Unit = { _, _, _ -> },
+    onToggleFavorites: (List<MediaItem>, Boolean) -> Unit = { _, _ -> },
+    onSelectionChanged: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -139,6 +158,25 @@ fun PicturesScreen(
     val scope = rememberCoroutineScope()
     var dragging by remember { mutableStateOf(false) }
     var dragLabel by remember { mutableStateOf("") }
+    var selected by remember { mutableStateOf<Set<MediaItem>>(emptySet()) }
+    val inSelection = selected.isNotEmpty()
+    var showTopMenu by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var albumDialogMode by remember { mutableStateOf<String?>(null) }
+    var albumName by remember { mutableStateOf("") }
+    LaunchedEffect(inSelection) { onSelectionChanged(inSelection) }
+    fun shareSelected() {
+        val list = selected.toList()
+        if (list.isEmpty()) return
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "*/*"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(list.map { it.uri }))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, null))
+        selected = emptySet()
+    }
 
     val rows = remember(items, columns) {
         val out = mutableListOf<PicRow>()
@@ -188,19 +226,53 @@ fun PicturesScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = Color.Black,
         topBar = {
-            LargeTopAppBar(
-                title = { Text(stringResource(R.string.pictures), fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = { Toast.makeText(context, R.string.coming_phase2, Toast.LENGTH_SHORT).show() }) {
-                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search))
-                    }
-                    IconButton(onClick = { Toast.makeText(context, R.string.coming_phase2, Toast.LENGTH_SHORT).show() }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more))
-                    }
-                },
-                colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Black),
-                scrollBehavior = scrollBehavior
-            )
+            if (inSelection) {
+                LargeTopAppBar(
+                    title = { Text(stringResource(R.string.selected_count, selected.size), fontWeight = FontWeight.Bold) },
+                    actions = {
+                        Checkbox(
+                            checked = selected.size == items.size && items.isNotEmpty(),
+                            onCheckedChange = { all ->
+                                selected = if (all) items.toSet() else emptySet()
+                            }
+                        )
+                        IconButton(onClick = { selected = emptySet() }) {
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cancel))
+                        }
+                    },
+                    colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Black),
+                    scrollBehavior = scrollBehavior
+                )
+            } else {
+                LargeTopAppBar(
+                    title = { Text(titleText ?: stringResource(titleRes), fontWeight = FontWeight.Bold) },
+                    actions = {
+                        IconButton(onClick = onSearch) {
+                            Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search))
+                        }
+                        Box {
+                            IconButton(onClick = { showTopMenu = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more))
+                            }
+                            DropdownMenu(expanded = showTopMenu, onDismissRequest = { showTopMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.select)) },
+                                    onClick = {
+                                        showTopMenu = false
+                                        if (items.isNotEmpty()) selected = setOf(items.first())
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.refresh)) },
+                                    onClick = { showTopMenu = false; onRefresh() }
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Black),
+                    scrollBehavior = scrollBehavior
+                )
+            }
         }
     ) { padding ->
         Box(
@@ -260,17 +332,36 @@ fun PicturesScreen(
                             )
                             is PicRow.GridRow -> Row(Modifier.fillMaxWidth()) {
                                 row.items.forEach { item ->
+                                    val isSel = selected.contains(item)
                                     Box(
                                         Modifier
                                             .weight(1f)
                                             .aspectRatio(1f)
                                             .padding(0.5.dp)
-                                            .clickable {
-                                                val idx = items.indexOf(item)
-                                                if (idx >= 0) onOpen(items, idx)
-                                            }
+                                            .combinedClickable(
+                                                onClick = {
+                                                    if (inSelection) {
+                                                        selected = if (isSel) selected - item else selected + item
+                                                    } else {
+                                                        val idx = items.indexOf(item)
+                                                        if (idx >= 0) onOpen(items, idx)
+                                                    }
+                                                },
+                                                onLongClick = { selected = selected + item }
+                                            )
                                     ) {
                                         Thumb(item, Modifier.fillMaxSize())
+                                        if (inSelection) {
+                                            Box(
+                                                Modifier
+                                                    .align(Alignment.TopStart)
+                                                    .padding(8.dp)
+                                                    .size(24.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isSel) Color(0xFF0A84FF) else Color.Transparent)
+                                                    .border(BorderStroke(2.dp, Color.White), CircleShape)
+                                            )
+                                        }
                                         if (item.isVideo) {
                                             Row(
                                                 Modifier
@@ -341,6 +432,117 @@ fun PicturesScreen(
                     Text(dragLabel, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
+            if (inSelection) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp)
+                ) {
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(36.dp))
+                            .background(PillColor)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(stringResource(R.string.create), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { albumDialogMode = "create"; albumName = "" })
+                        Text(stringResource(R.string.share), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { shareSelected() })
+                        Text(stringResource(R.string.delete), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { showDeleteDialog = true })
+                        Box {
+                            Text(stringResource(R.string.more), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { showMoreMenu = true })
+                            DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.copy_to_album)) },
+                                    onClick = { showMoreMenu = false; albumDialogMode = "copy"; albumName = "" }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.move_to_album)) },
+                                    onClick = { showMoreMenu = false; albumDialogMode = "move"; albumName = "" }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.add_to_favorites)) },
+                                    onClick = { showMoreMenu = false; onToggleFavorites(selected.toList(), true); selected = emptySet() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.remove_from_favorites)) },
+                                    onClick = { showMoreMenu = false; onToggleFavorites(selected.toList(), false); selected = emptySet() }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text(stringResource(R.string.delete_to_trash)) },
+                text = { Text(stringResource(R.string.delete_to_trash_text)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeleteDialog = false
+                        onMoveToTrash(selected.toList())
+                        selected = emptySet()
+                    }) { Text(stringResource(R.string.delete)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.cancel)) }
+                }
+            )
+        }
+        if (albumDialogMode != null) {
+            val mode = albumDialogMode!!
+            Dialog(onDismissRequest = { albumDialogMode = null }) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(CardColor)
+                        .padding(24.dp)
+                ) {
+                    Text(
+                        if (mode == "create") stringResource(R.string.create) else if (mode == "copy") stringResource(R.string.copy_to_album) else stringResource(R.string.move_to_album),
+                        color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    TextField(
+                        value = albumName,
+                        onValueChange = { albumName = it },
+                        label = { Text(stringResource(R.string.album_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    albumNames.forEach { name ->
+                        Text(
+                            name, color = Color(0xFF0A84FF), fontSize = 15.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onCopyToAlbum(selected.toList(), name, mode == "move")
+                                    Toast.makeText(context, if (mode == "move") R.string.moved_to_album else R.string.copied_to_album, Toast.LENGTH_SHORT).show()
+                                    albumDialogMode = null
+                                    selected = emptySet()
+                                }
+                                .padding(vertical = 8.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { albumDialogMode = null }) { Text(stringResource(R.string.cancel)) }
+                        TextButton(
+                            enabled = albumName.isNotBlank(),
+                            onClick = {
+                                onCopyToAlbum(selected.toList(), albumName.trim(), mode == "move")
+                                Toast.makeText(context, if (mode == "move") R.string.moved_to_album else R.string.copied_to_album, Toast.LENGTH_SHORT).show()
+                                albumDialogMode = null
+                                selected = emptySet()
+                            }
+                        ) { Text(stringResource(R.string.confirm)) }
+                    }
+                }
+            }
         }
     }
 }
@@ -350,7 +552,9 @@ fun PicturesScreen(
 fun AlbumsScreen(
     essential: List<Album>,
     all: List<Album>,
-    onOpenAlbum: (Album) -> Unit
+    onOpenAlbum: (Album) -> Unit,
+    onSearch: () -> Unit = {},
+    showEssential: Boolean = true
 ) {
     val context = LocalContext.current
     var showAll by remember { mutableStateOf(false) }
@@ -362,14 +566,8 @@ fun AlbumsScreen(
             LargeTopAppBar(
                 title = { Text(stringResource(R.string.albums), fontWeight = FontWeight.Bold) },
                 actions = {
-                    IconButton(onClick = { Toast.makeText(context, R.string.coming_phase2, Toast.LENGTH_SHORT).show() }) {
-                        Icon(Icons.Filled.Add, contentDescription = null)
-                    }
-                    IconButton(onClick = { Toast.makeText(context, R.string.coming_phase2, Toast.LENGTH_SHORT).show() }) {
+                    IconButton(onClick = onSearch) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search))
-                    }
-                    IconButton(onClick = { Toast.makeText(context, R.string.coming_phase2, Toast.LENGTH_SHORT).show() }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more))
                     }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Black),
@@ -384,19 +582,21 @@ fun AlbumsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.essential_albums), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(
-                        if (showAll) stringResource(R.string.show_less) else stringResource(R.string.view_all),
-                        color = Color(0xFF0A84FF),
-                        fontSize = 15.sp,
-                        modifier = Modifier.clickable { showAll = !showAll }
-                    )
+            if (showEssential) {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.essential_albums), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            if (showAll) stringResource(R.string.show_less) else stringResource(R.string.view_all),
+                            color = Color(0xFF0A84FF),
+                            fontSize = 15.sp,
+                            modifier = Modifier.clickable { showAll = !showAll }
+                        )
+                    }
                 }
+                items(essential) { album -> AlbumTile(album, onOpenAlbum) }
             }
-            items(essential) { album -> AlbumTile(album, onOpenAlbum) }
-            if (showAll) {
+            if (showAll || !showEssential) {
                 item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
                     Text(stringResource(R.string.all_albums), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 16.dp))
                 }
@@ -424,9 +624,10 @@ fun AlbumTile(album: Album, onClick: (Album) -> Unit) {
     }
 }
 
+enum class MenuDestination { VIDEOS, FAVORITES, RECENT, LOCATIONS, TRASH, SETTINGS }
+
 @Composable
-fun MenuPopup(onDismiss: () -> Unit) {
-    val context = LocalContext.current
+fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
@@ -436,24 +637,21 @@ fun MenuPopup(onDismiss: () -> Unit) {
                 .padding(24.dp)
         ) {
             val items = listOf(
-                Triple(R.string.videos, Icons.Filled.PlayCircle, Icons.Filled.PlayCircle),
-                Triple(R.string.favorites, Icons.Filled.FavoriteBorder, Icons.Filled.FavoriteBorder),
-                Triple(R.string.recent, Icons.Filled.AccessTime, Icons.Filled.AccessTime),
-                Triple(R.string.locations, Icons.Filled.Place, Icons.Filled.Place),
-                Triple(R.string.trash, Icons.Filled.Delete, Icons.Filled.Delete),
-                Triple(R.string.settings, Icons.Filled.Settings, Icons.Filled.Settings)
+                Triple(R.string.videos, Icons.Filled.PlayCircle, MenuDestination.VIDEOS),
+                Triple(R.string.favorites, Icons.Filled.FavoriteBorder, MenuDestination.FAVORITES),
+                Triple(R.string.recent, Icons.Filled.AccessTime, MenuDestination.RECENT),
+                Triple(R.string.locations, Icons.Filled.Place, MenuDestination.LOCATIONS),
+                Triple(R.string.trash, Icons.Filled.Delete, MenuDestination.TRASH),
+                Triple(R.string.settings, Icons.Filled.Settings, MenuDestination.SETTINGS)
             )
             items.chunked(4).forEach { rowItems ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    rowItems.forEach { (label, icon, _) ->
+                    rowItems.forEach { (label, icon, dest) ->
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable {
-                                    Toast.makeText(context, R.string.coming_phase2, Toast.LENGTH_SHORT).show()
-                                    onDismiss()
-                                }
+                                .clickable { onSelect(dest); onDismiss() }
                                 .padding(vertical = 12.dp)
                         ) {
                             Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp))
@@ -505,7 +703,7 @@ fun ViewerScreen(
                                 }
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, R.string.coming_phase2, Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, R.string.cannot_open_video, Toast.LENGTH_SHORT).show()
                             }
                         }
                 )

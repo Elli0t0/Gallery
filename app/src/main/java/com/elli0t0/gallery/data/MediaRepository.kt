@@ -1,6 +1,7 @@
 package com.elli0t0.gallery.data
 
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,9 @@ object MediaRepository {
             MediaStore.MediaColumns.MIME_TYPE,
             MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
             MediaStore.MediaColumns.RELATIVE_PATH,
-            MediaStore.Video.Media.DURATION
+            MediaStore.Video.Media.DURATION,
+            MediaStore.Images.Media.LATITUDE,
+            MediaStore.Images.Media.LONGITUDE
         )
         val cursor = context.contentResolver.query(
             uri, projection, null, null,
@@ -41,6 +44,8 @@ object MediaRepository {
             val bucketCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
             val pathCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
             val durCol = it.getColumnIndex(MediaStore.Video.Media.DURATION)
+            val latCol = it.getColumnIndex(MediaStore.Images.Media.LATITUDE)
+            val lngCol = it.getColumnIndex(MediaStore.Images.Media.LONGITUDE)
             while (it.moveToNext()) {
                 val id = it.getLong(idCol)
                 val taken = it.getLong(takenCol)
@@ -55,17 +60,70 @@ object MediaRepository {
                     dateTakenMs = dateMs,
                     durationMs = if (durCol >= 0 && isVideo) it.getLong(durCol) else 0L,
                     bucket = it.getString(bucketCol) ?: "Unknown",
-                    relativePath = it.getString(pathCol) ?: ""
+                    relativePath = it.getString(pathCol) ?: "",
+                    latitude = if (latCol >= 0 && !it.isNull(latCol)) it.getDouble(latCol) else null,
+                    longitude = if (lngCol >= 0 && !it.isNull(lngCol)) it.getDouble(lngCol) else null
                 )
             }
         }
         return out
     }
 
-    fun albums(items: List<MediaItem>): List<Album> {
-        return items.groupBy { it.bucket }
-            .map { (name, list) -> Album(name, list) }
-            .sortedByDescending { it.count }
+    fun albums(items: List<MediaItem>, merge: Boolean = false): List<Album> {
+        return if (!merge) {
+            items.groupBy { it.bucket }
+                .map { (name, list) -> Album(name, list) }
+                .sortedByDescending { it.count }
+        } else {
+            items.groupBy { it.bucket.lowercase() }
+                .map { (_, list) -> Album(list.first().bucket, list) }
+                .sortedByDescending { it.count }
+        }
+    }
+
+    suspend fun copyToAlbum(context: Context, items: List<MediaItem>, albumName: String, move: Boolean): Int =
+        withContext(Dispatchers.IO) {
+            var copied = 0
+            val resolver = context.contentResolver
+            items.forEach { item ->
+                try {
+                    val collection = if (item.isVideo) {
+                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    } else {
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    }
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, item.displayName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, item.mimeType)
+                        put(MediaStore.MediaColumns.DATE_TAKEN, item.dateTakenMs)
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/$albumName")
+                    }
+                    val newUri = resolver.insert(collection, values) ?: return@forEach
+                    resolver.openInputStream(item.uri)?.use { input ->
+                        resolver.openOutputStream(newUri)?.use { output -> input.copyTo(output) }
+                    }
+                    copied++
+                    if (move) {
+                        try {
+                            resolver.delete(item.uri, null, null)
+                        } catch (_: Exception) {
+                        }
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            copied
+        }
+
+    suspend fun deletePermanently(context: Context, items: List<MediaItem>) {
+        withContext(Dispatchers.IO) {
+            items.forEach { item ->
+                try {
+                    context.contentResolver.delete(item.uri, null, null)
+                } catch (_: Exception) {
+                }
+            }
+        }
     }
 
     fun essentialAlbums(items: List<MediaItem>): List<Album> {

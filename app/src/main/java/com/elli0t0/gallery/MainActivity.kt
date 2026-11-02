@@ -37,9 +37,14 @@ import com.elli0t0.gallery.data.Album
 import com.elli0t0.gallery.data.MediaItem
 import com.elli0t0.gallery.ui.AlbumsScreen
 import com.elli0t0.gallery.ui.GalleryTheme
+import com.elli0t0.gallery.ui.LocationsScreen
+import com.elli0t0.gallery.ui.MenuDestination
 import com.elli0t0.gallery.ui.MenuPopup
 import com.elli0t0.gallery.ui.PicturesScreen
 import com.elli0t0.gallery.ui.PillNav
+import com.elli0t0.gallery.ui.SearchScreen
+import com.elli0t0.gallery.ui.SettingsScreen
+import com.elli0t0.gallery.ui.TrashScreen
 import com.elli0t0.gallery.ui.ViewerScreen
 
 class MainActivity : ComponentActivity() {
@@ -50,6 +55,11 @@ class MainActivity : ComponentActivity() {
         data object Home : Screen
         data class AlbumDetail(val album: Album) : Screen
         data class Viewer(val list: List<MediaItem>, val index: Int) : Screen
+        data class ListScreen(val titleRes: Int, val items: List<MediaItem>) : Screen
+        data object Search : Screen
+        data object Trash : Screen
+        data object Locations : Screen
+        data object Settings : Screen
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,10 +67,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             GalleryTheme {
                 val items by viewModel.items.collectAsState()
+                val favorites by viewModel.favorites.collectAsState()
+                val trash by viewModel.trash.collectAsState()
+                val settings by viewModel.settings.collectAsState()
                 var granted by remember { mutableStateOf(hasMediaPermission()) }
                 var showMenu by remember { mutableStateOf(false) }
                 var tab by remember { mutableStateOf(0) }
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+                var selectionActive by remember { mutableStateOf(false) }
 
                 val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
@@ -97,45 +111,129 @@ class MainActivity : ComponentActivity() {
                     return@GalleryTheme
                 }
 
+                val visible = viewModel.visibleItems()
+                val albumNames = viewModel.albums().map { it.name }
+                fun openMenuDestination(dest: MenuDestination) {
+                    screen = when (dest) {
+                        MenuDestination.VIDEOS -> Screen.ListScreen(R.string.videos, visible.filter { it.isVideo })
+                        MenuDestination.FAVORITES -> Screen.ListScreen(R.string.favorites, visible.filter { favorites.contains(it.uri.toString()) })
+                        MenuDestination.RECENT -> {
+                            val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+                            Screen.ListScreen(R.string.recent, visible.filter { it.dateTakenMs >= cutoff })
+                        }
+                        MenuDestination.LOCATIONS -> Screen.Locations
+                        MenuDestination.TRASH -> Screen.Trash
+                        MenuDestination.SETTINGS -> Screen.Settings
+                    }
+                }
+                LaunchedEffect(screen) { selectionActive = false }
+
                 when (val current = screen) {
                     is Screen.Viewer -> ViewerScreen(current.list, current.index) { screen = Screen.Home }
                     is Screen.AlbumDetail -> {
                         Box(Modifier.fillMaxSize()) {
                             PicturesScreen(
                                 items = current.album.items,
-                                onOpen = { list, idx -> screen = Screen.Viewer(list, idx) },
-                                onMenu = { showMenu = true }
+                                onOpen = { l, idx -> screen = Screen.Viewer(l, idx) },
+                                onSearch = { screen = Screen.Search },
+                                onRefresh = { viewModel.load() },
+                                titleText = current.album.name,
+                                albumNames = albumNames,
+                                onMoveToTrash = { viewModel.moveToTrash(it) },
+                                onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
+                                onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
+                                onSelectionChanged = { selectionActive = it }
                             )
-                            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
-                                PillNav(tab) { i ->
-                                    tab = i
-                                    screen = Screen.Home
-                                    if (i == 2) showMenu = true
+                            if (!selectionActive) {
+                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
+                                    PillNav(tab) { i ->
+                                        tab = i
+                                        screen = Screen.Home
+                                        if (i == 2) showMenu = true
+                                    }
                                 }
                             }
                         }
                     }
+                    is Screen.ListScreen -> {
+                        Box(Modifier.fillMaxSize()) {
+                            PicturesScreen(
+                                items = current.items,
+                                onOpen = { l, idx -> screen = Screen.Viewer(l, idx) },
+                                onSearch = { screen = Screen.Search },
+                                onRefresh = { viewModel.load() },
+                                titleRes = current.titleRes,
+                                albumNames = albumNames,
+                                onMoveToTrash = { viewModel.moveToTrash(it) },
+                                onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
+                                onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
+                                onSelectionChanged = { selectionActive = it }
+                            )
+                            if (!selectionActive) {
+                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
+                                    PillNav(tab) { i ->
+                                        tab = i
+                                        screen = Screen.Home
+                                        if (i == 2) showMenu = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Screen.Search -> SearchScreen(visible, { l, idx -> screen = Screen.Viewer(l, idx) }) { screen = Screen.Home }
+                    Screen.Trash -> {
+                        val trashedItems = items.filter { trash.containsKey(it.uri.toString()) }
+                            .sortedByDescending { trash[it.uri.toString()] ?: 0L }
+                        TrashScreen(
+                            items = trashedItems,
+                            trash = trash,
+                            onRestore = { viewModel.restoreFromTrash(it) },
+                            onDeletePermanently = { viewModel.deletePermanently(it) },
+                            onEmptyTrash = { viewModel.deletePermanently(trashedItems) },
+                            onBack = { screen = Screen.Home }
+                        )
+                    }
+                    Screen.Locations -> LocationsScreen(visible, { l, idx -> screen = Screen.Viewer(l, idx) }) { screen = Screen.Home }
+                    Screen.Settings -> SettingsScreen(
+                        settings = settings,
+                        onToggle = { key, value -> viewModel.setSetting(key, value) },
+                        onOpenPermissions = {
+                            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                        },
+                        versionName = BuildConfig.VERSION_NAME,
+                        onBack = { screen = Screen.Home }
+                    )
                     Screen.Home -> {
                         Box(Modifier.fillMaxSize()) {
                             if (tab == 0) {
                                 PicturesScreen(
-                                    items = items,
-                                    onOpen = { list, idx -> screen = Screen.Viewer(list, idx) },
-                                    onMenu = { showMenu = true }
+                                    items = visible,
+                                    onOpen = { l, idx -> screen = Screen.Viewer(l, idx) },
+                                    onSearch = { screen = Screen.Search },
+                                    onRefresh = { viewModel.load() },
+                                    albumNames = albumNames,
+                                    onMoveToTrash = { viewModel.moveToTrash(it) },
+                                    onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
+                                    onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
+                                    onSelectionChanged = { selectionActive = it }
                                 )
                             } else {
                                 AlbumsScreen(
                                     essential = viewModel.essentialAlbums(),
                                     all = viewModel.albums(),
-                                    onOpenAlbum = { album -> screen = Screen.AlbumDetail(album) }
+                                    onOpenAlbum = { album -> screen = Screen.AlbumDetail(album) },
+                                    onSearch = { screen = Screen.Search },
+                                    showEssential = settings.essentialAlbums
                                 )
                             }
-                            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
-                                PillNav(tab) { i ->
-                                    tab = i
-                                    if (i == 2) {
-                                        showMenu = true
-                                        tab = 0
+                            if (!selectionActive) {
+                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
+                                    PillNav(tab) { i ->
+                                        tab = i
+                                        if (i == 2) {
+                                            showMenu = true
+                                            tab = 0
+                                        }
                                     }
                                 }
                             }
@@ -144,7 +242,13 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (showMenu) {
-                    MenuPopup(onDismiss = { showMenu = false })
+                    MenuPopup(
+                        onDismiss = { showMenu = false },
+                        onSelect = { dest ->
+                            selectionActive = false
+                            openMenuDestination(dest)
+                        }
+                    )
                 }
             }
         }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.elli0t0.gallery.data.Album
 import com.elli0t0.gallery.data.MediaItem
 import com.elli0t0.gallery.data.MediaRepository
+import com.elli0t0.gallery.data.Store
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,15 +16,89 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
     val items: StateFlow<List<MediaItem>> = _items
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading
+    private val _favorites = MutableStateFlow<Set<String>>(emptySet())
+    val favorites: StateFlow<Set<String>> = _favorites
+    private val _trash = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val trash: StateFlow<Map<String, Long>> = _trash
+    private val _settings = MutableStateFlow(Store.Settings())
+    val settings: StateFlow<Store.Settings> = _settings
+
+    init {
+        val context = getApplication<Application>()
+        viewModelScope.launch { Store.favorites(context).collect { _favorites.value = it } }
+        viewModelScope.launch { Store.trash(context).collect { _trash.value = it } }
+        viewModelScope.launch { Store.settings(context).collect { _settings.value = it } }
+    }
 
     fun load() {
         viewModelScope.launch {
             _loading.value = true
-            _items.value = MediaRepository.loadAll(getApplication())
+            val context = getApplication<Application>()
+            val all = MediaRepository.loadAll(context)
+            val now = System.currentTimeMillis()
+            val expired = _trash.value.filter { (_, ts) -> now - ts > 30L * 24 * 60 * 60 * 1000 }
+            if (expired.isNotEmpty()) {
+                val expiredItems = all.filter { expired.containsKey(it.uri.toString()) }
+                MediaRepository.deletePermanently(context, expiredItems)
+                expired.keys.forEach { Store.setTrash(context, it, null) }
+                _items.value = MediaRepository.loadAll(context)
+            } else {
+                _items.value = all
+            }
             _loading.value = false
         }
     }
 
-    fun albums(): List<Album> = MediaRepository.albums(_items.value)
-    fun essentialAlbums(): List<Album> = MediaRepository.essentialAlbums(_items.value)
+    fun visibleItems(): List<MediaItem> {
+        val trashed = _trash.value.keys
+        return _items.value.filterNot { trashed.contains(it.uri.toString()) }
+    }
+
+    fun albums(): List<Album> = MediaRepository.albums(visibleItems(), _settings.value.mergeAlbums)
+    fun essentialAlbums(): List<Album> = MediaRepository.essentialAlbums(visibleItems())
+
+    fun setFavorites(items: List<MediaItem>, add: Boolean) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            items.forEach { Store.setFavorite(context, it.uri.toString(), add) }
+        }
+    }
+
+    fun moveToTrash(items: List<MediaItem>) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val now = System.currentTimeMillis()
+            items.forEach { Store.setTrash(context, it.uri.toString(), now) }
+        }
+    }
+
+    fun restoreFromTrash(items: List<MediaItem>) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            items.forEach { Store.setTrash(context, it.uri.toString(), null) }
+        }
+    }
+
+    fun deletePermanently(items: List<MediaItem>) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            MediaRepository.deletePermanently(context, items)
+            items.forEach { Store.setTrash(context, it.uri.toString(), null) }
+            load()
+        }
+    }
+
+    fun copyToAlbum(items: List<MediaItem>, albumName: String, move: Boolean) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            MediaRepository.copyToAlbum(context, items, albumName, move)
+            load()
+        }
+    }
+
+    fun setSetting(key: String, value: Boolean) {
+        viewModelScope.launch {
+            Store.setSetting(getApplication(), key, value)
+        }
+    }
 }
