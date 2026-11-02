@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4]
+
+- In-app video player (Media3): videos play inside the viewer, starting immediately on the current page, instead of opening an external player.
+- Controls: play/pause, live time "current / total", mute/unmute, and a scrub slider.
+- Scrub filmstrip: frame previews extracted from the video; tap a frame to jump to that moment.
+- Rotate button switches portrait/landscape; the viewer is already fullscreen, and the player releases when you swipe away.
+
 ## [0.0.3]
 
 - Viewer bottom pill: favorite, edit, share, delete (to trash), and a menu.

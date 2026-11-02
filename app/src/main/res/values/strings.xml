@@ -72,6 +72,10 @@
     <string name="copied">Copied</string>
     <string name="wallpaper_set">Wallpaper set</string>
     <string name="editor_phase5">Editor comes in Phase 5</string>
+    <string name="mute">Mute</string>
+    <string name="unmute">Unmute</string>
+    <string name="rotate">Rotate</string>
+    <string name="rotate_unavailable">Rotation unavailable</string>
     <string name="detail_date">Date</string>
     <string name="detail_name">File name</string>
     <string name="detail_path">Path</string>

@@ -692,39 +692,32 @@ fun ViewerScreen(
                 scale = (scale * zoomChange).coerceIn(1f, 4f)
                 if (scale > 1f) offset += panChange else offset = androidx.compose.ui.geometry.Offset.Zero
             }
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(item.uri).crossfade(false).build(),
-                    contentDescription = item.displayName,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = scale, scaleY = scale,
-                            translationX = offset.x, translationY = offset.y
-                        )
-                        .transformable(transformState)
-                        .clickable(enabled = item.isVideo) {
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(item.uri, item.mimeType)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, R.string.cannot_open_video, Toast.LENGTH_SHORT).show()
-                            }
+            if (item.isVideo && page == pagerState.currentPage) {
+                VideoPlayer(item)
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(item.uri).crossfade(false).build(),
+                        contentDescription = item.displayName,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(
+                                scaleX = scale, scaleY = scale,
+                                translationX = offset.x, translationY = offset.y
+                            )
+                            .transformable(transformState)
+                    )
+                    if (item.isVideo) {
+                        Box(
+                            Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.5f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(36.dp))
                         }
-                )
-                if (item.isVideo) {
-                    Box(
-                        Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.5f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(36.dp))
                     }
                 }
             }

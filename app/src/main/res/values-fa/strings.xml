@@ -72,6 +72,10 @@
     <string name="copied">کپی شد</string>
     <string name="wallpaper_set">پس‌زمینه تنظیم شد</string>
     <string name="editor_phase5">ویرایشگر در مرحله ۵ می‌آید</string>
+    <string name="mute">بی‌صدا</string>
+    <string name="unmute">با صدا</string>
+    <string name="rotate">چرخش</string>
+    <string name="rotate_unavailable">چرخش در دسترس نیست</string>
     <string name="detail_date">تاریخ</string>
     <string name="detail_name">نام فایل</string>
     <string name="detail_path">مسیر</string>
