@@ -15,6 +15,7 @@ private val Context.galleryDataStore: DataStore<Preferences> by preferencesDataS
 object Store {
     private val FAVORITES = stringSetPreferencesKey("favorites")
     private val TRASH = stringSetPreferencesKey("trash")
+    private val TAGS = stringSetPreferencesKey("tags")
     private val MOTION_AUTOPLAY = booleanPreferencesKey("motion_autoplay")
     private val ESSENTIAL_ALBUMS = booleanPreferencesKey("essential_albums")
     private val MERGE_ALBUMS = booleanPreferencesKey("merge_albums")
@@ -37,6 +38,16 @@ object Store {
                     if (ts != null) parts[0] to ts else null
                 } else null
             }.toMap()
+        }
+
+    fun tags(context: Context): Flow<Map<String, Set<String>>> =
+        context.galleryDataStore.data.map { prefs ->
+            val out = mutableMapOf<String, MutableSet<String>>()
+            (prefs[TAGS] ?: emptySet()).forEach { entry ->
+                val parts = entry.split("|", limit = 2)
+                if (parts.size == 2) out.getOrPut(parts[0]) { mutableSetOf() } += parts[1]
+            }
+            out
         }
 
     fun settings(context: Context): Flow<Settings> =
@@ -62,6 +73,14 @@ object Store {
             current.removeAll { entry -> entry.substringBefore("|") == uri }
             if (timestampMs != null) current += "$uri|$timestampMs"
             it[TRASH] = current
+        }
+    }
+
+    suspend fun setTag(context: Context, uri: String, tag: String, add: Boolean) {
+        context.galleryDataStore.edit {
+            val current = (it[TAGS] ?: emptySet()).toMutableSet()
+            if (add) current += "$uri|$tag" else current -= "$uri|$tag"
+            it[TAGS] = current
         }
     }
 

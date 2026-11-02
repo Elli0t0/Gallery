@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
             GalleryTheme {
                 val items by viewModel.items.collectAsState()
                 val favorites by viewModel.favorites.collectAsState()
+                val tags by viewModel.tags.collectAsState()
                 val trash by viewModel.trash.collectAsState()
                 val settings by viewModel.settings.collectAsState()
                 var granted by remember { mutableStateOf(hasMediaPermission()) }
@@ -129,7 +130,17 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(screen) { selectionActive = false }
 
                 when (val current = screen) {
-                    is Screen.Viewer -> ViewerScreen(current.list, current.index) { screen = Screen.Home }
+                    is Screen.Viewer -> ViewerScreen(
+                        list = current.list,
+                        startIndex = current.index,
+                        onBack = { screen = Screen.Home },
+                        favoriteUris = favorites,
+                        tags = tags,
+                        onToggleFavorite = { item, add -> viewModel.setFavorites(listOf(item), add) },
+                        onDeleteToTrash = { item -> viewModel.moveToTrash(listOf(item)) },
+                        onAddTag = { item, tag -> viewModel.setTag(item, tag, true) },
+                        onRemoveTag = { item, tag -> viewModel.setTag(item, tag, false) }
+                    )
                     is Screen.AlbumDetail -> {
                         Box(Modifier.fillMaxSize()) {
                             PicturesScreen(

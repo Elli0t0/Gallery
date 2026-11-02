@@ -29,7 +29,10 @@ object MediaRepository {
             MediaStore.MediaColumns.RELATIVE_PATH,
             MediaStore.Video.Media.DURATION,
             MediaStore.Images.Media.LATITUDE,
-            MediaStore.Images.Media.LONGITUDE
+            MediaStore.Images.Media.LONGITUDE,
+            MediaStore.MediaColumns.SIZE,
+            MediaStore.MediaColumns.WIDTH,
+            MediaStore.MediaColumns.HEIGHT
         )
         val cursor = context.contentResolver.query(
             uri, projection, null, null,
@@ -46,6 +49,9 @@ object MediaRepository {
             val durCol = it.getColumnIndex(MediaStore.Video.Media.DURATION)
             val latCol = it.getColumnIndex(MediaStore.Images.Media.LATITUDE)
             val lngCol = it.getColumnIndex(MediaStore.Images.Media.LONGITUDE)
+            val sizeCol = it.getColumnIndex(MediaStore.MediaColumns.SIZE)
+            val widthCol = it.getColumnIndex(MediaStore.MediaColumns.WIDTH)
+            val heightCol = it.getColumnIndex(MediaStore.MediaColumns.HEIGHT)
             while (it.moveToNext()) {
                 val id = it.getLong(idCol)
                 val taken = it.getLong(takenCol)
@@ -62,7 +68,10 @@ object MediaRepository {
                     bucket = it.getString(bucketCol) ?: "Unknown",
                     relativePath = it.getString(pathCol) ?: "",
                     latitude = if (latCol >= 0 && !it.isNull(latCol)) it.getDouble(latCol) else null,
-                    longitude = if (lngCol >= 0 && !it.isNull(lngCol)) it.getDouble(lngCol) else null
+                    longitude = if (lngCol >= 0 && !it.isNull(lngCol)) it.getDouble(lngCol) else null,
+                    sizeBytes = if (sizeCol >= 0 && !it.isNull(sizeCol)) it.getLong(sizeCol) else 0L,
+                    width = if (widthCol >= 0 && !it.isNull(widthCol)) it.getInt(widthCol) else 0,
+                    height = if (heightCol >= 0 && !it.isNull(heightCol)) it.getInt(heightCol) else 0
                 )
             }
         }

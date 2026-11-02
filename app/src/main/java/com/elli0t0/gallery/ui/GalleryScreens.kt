@@ -671,9 +671,17 @@ fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
 fun ViewerScreen(
     list: List<MediaItem>,
     startIndex: Int,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    favoriteUris: Set<String> = emptySet(),
+    tags: Map<String, Set<String>> = emptyMap(),
+    onToggleFavorite: (MediaItem, Boolean) -> Unit = { _, _ -> },
+    onDeleteToTrash: (MediaItem) -> Unit = {},
+    onAddTag: (MediaItem, String) -> Unit = { _, _ -> },
+    onRemoveTag: (MediaItem, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showDetails by remember { mutableStateOf(false) }
     val pagerState = rememberPagerState(initialPage = startIndex.coerceIn(0, (list.size - 1).coerceAtLeast(0))) { list.size }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
@@ -723,6 +731,42 @@ fun ViewerScreen(
         }
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
             Icon(Icons.Filled.ArrowBack, null, tint = Color.White)
+        }
+        if (list.isNotEmpty()) {
+            val current = list[pagerState.currentPage.coerceIn(0, list.size - 1)]
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ViewerBottomPill(
+                    item = current,
+                    isFavorite = favoriteUris.contains(current.uri.toString()),
+                    onToggleFavorite = {
+                        onToggleFavorite(current, !favoriteUris.contains(current.uri.toString()))
+                    },
+                    onEdit = {
+                        Toast.makeText(context, R.string.editor_phase5, Toast.LENGTH_SHORT).show()
+                    },
+                    onDelete = { onDeleteToTrash(current); onBack() },
+                    onShowDetails = { showDetails = true },
+                    onPrint = { scope.launch { printItem(context, current) } }
+                )
+                Spacer(Modifier.height(12.dp))
+                Filmstrip(list, pagerState.currentPage) { index ->
+                    scope.launch { pagerState.scrollToPage(index) }
+                }
+            }
+            if (showDetails) {
+                DetailsSheet(
+                    item = current,
+                    tags = tags[current.uri.toString()] ?: emptySet(),
+                    onAddTag = { tag -> onAddTag(current, tag) },
+                    onRemoveTag = { tag -> onRemoveTag(current, tag) },
+                    onDismiss = { showDetails = false }
+                )
+            }
         }
     }
 }

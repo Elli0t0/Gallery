@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.3]
+
+- Viewer bottom pill: favorite, edit, share, delete (to trash), and a menu.
+- Viewer menu: Details, Copy to clipboard, Set as wallpaper, Print.
+- Filmstrip under the viewer pill; tap a thumb to jump to that item.
+- Details sheet: date, file name, path, size, resolution, and tags with Add tag (tap a tag to remove it).
+- Size work: R8 minify + shrink resources, arm64 only, en/fa locale filters, packaging excludes.
+- Green auto-advance: a green report now starts the next phase without waiting for "next".
+
 ## [0.0.2]
 
 - Selection mode: long-press to select, "N selected" title, select-all checkbox, Cancel, bottom pill with Create, Share, Delete, and More.

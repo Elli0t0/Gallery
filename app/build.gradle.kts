@@ -20,6 +20,19 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         resourceConfigurations += setOf("en", "fa")
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "DebugProbesKt.bin", "kotlin-tooling-metadata.json")
+        }
+    }
+
+    androidResources {
+        localeFilters += listOf("en", "fa")
     }
 
     signingConfigs {
@@ -41,8 +54,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             val releaseKeystore = signingConfigs.getByName("release")
             if (releaseKeystore.storeFile != null) {
                 signingConfig = releaseKeystore
@@ -79,6 +96,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.coil.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.print)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.tooling)

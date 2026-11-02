@@ -65,4 +65,19 @@
     <string name="videos_empty">هنوز ویدیویی نیست</string>
     <string name="recent_empty">مورد اخیری نیست</string>
     <string name="cannot_open_video">ویدیو باز نمی‌شود</string>
+    <string name="details">جزئیات</string>
+    <string name="copy_to_clipboard">کپی به حافظه</string>
+    <string name="set_as_wallpaper">تنظیم به‌عنوان پس‌زمینه</string>
+    <string name="print">چاپ</string>
+    <string name="copied">کپی شد</string>
+    <string name="wallpaper_set">پس‌زمینه تنظیم شد</string>
+    <string name="editor_phase5">ویرایشگر در مرحله ۵ می‌آید</string>
+    <string name="detail_date">تاریخ</string>
+    <string name="detail_name">نام فایل</string>
+    <string name="detail_path">مسیر</string>
+    <string name="detail_size">اندازه</string>
+    <string name="detail_resolution">وضوح</string>
+    <string name="tags">برچسب‌ها</string>
+    <string name="add_tag">افزودن برچسب</string>
+    <string name="add">افزودن</string>
 </resources>

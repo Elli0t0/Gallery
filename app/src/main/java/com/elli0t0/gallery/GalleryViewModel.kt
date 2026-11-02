@@ -22,12 +22,15 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
     val trash: StateFlow<Map<String, Long>> = _trash
     private val _settings = MutableStateFlow(Store.Settings())
     val settings: StateFlow<Store.Settings> = _settings
+    private val _tags = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    val tags: StateFlow<Map<String, Set<String>>> = _tags
 
     init {
         val context = getApplication<Application>()
         viewModelScope.launch { Store.favorites(context).collect { _favorites.value = it } }
         viewModelScope.launch { Store.trash(context).collect { _trash.value = it } }
         viewModelScope.launch { Store.settings(context).collect { _settings.value = it } }
+        viewModelScope.launch { Store.tags(context).collect { _tags.value = it } }
     }
 
     fun load() {
@@ -93,6 +96,12 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
             val context = getApplication<Application>()
             MediaRepository.copyToAlbum(context, items, albumName, move)
             load()
+        }
+    }
+
+    fun setTag(item: MediaItem, tag: String, add: Boolean) {
+        viewModelScope.launch {
+            Store.setTag(getApplication(), item.uri.toString(), tag, add)
         }
     }
 
