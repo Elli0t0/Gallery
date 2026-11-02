@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.5]
+
+- Photo editor part 1, opened from the viewer pill's edit button: undo/redo, Revert, Save, and a menu with Save copy, Resize, Copy edits, Paste edits.
+- Crop tab: aspect ratios (Original, 1:1, 4:3, 3:2, 16:9), rotate left/right, flip horizontal/vertical, straighten slider (-45 to +45 degrees).
+- Filters tab: Original, Vivid, Warm, Cool, Mono, Fade, each with a live thumbnail preview.
+- Adjust tab: Auto plus ruler sliders for light balance, brightness, exposure, contrast, highlights, shadows, saturation, tint, temperature, sharpness, vignette.
+- Save writes back to the original when possible (otherwise saves a copy); Save copy always writes a new "_edited" image to Pictures/Gallery.
+
 ## [0.0.4]
 
 - In-app video player (Media3): videos play inside the viewer, starting immediately on the current page, instead of opening an external player.

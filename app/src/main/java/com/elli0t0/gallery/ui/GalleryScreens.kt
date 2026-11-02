@@ -677,7 +677,8 @@ fun ViewerScreen(
     onToggleFavorite: (MediaItem, Boolean) -> Unit = { _, _ -> },
     onDeleteToTrash: (MediaItem) -> Unit = {},
     onAddTag: (MediaItem, String) -> Unit = { _, _ -> },
-    onRemoveTag: (MediaItem, String) -> Unit = { _, _ -> }
+    onRemoveTag: (MediaItem, String) -> Unit = { _, _ -> },
+    onEdit: (MediaItem) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -739,9 +740,7 @@ fun ViewerScreen(
                     onToggleFavorite = {
                         onToggleFavorite(current, !favoriteUris.contains(current.uri.toString()))
                     },
-                    onEdit = {
-                        Toast.makeText(context, R.string.editor_phase5, Toast.LENGTH_SHORT).show()
-                    },
+                    onEdit = { onEdit(current) },
                     onDelete = { onDeleteToTrash(current); onBack() },
                     onShowDetails = { showDetails = true },
                     onPrint = { scope.launch { printItem(context, current) } }

@@ -45,6 +45,7 @@ import com.elli0t0.gallery.ui.PillNav
 import com.elli0t0.gallery.ui.SearchScreen
 import com.elli0t0.gallery.ui.SettingsScreen
 import com.elli0t0.gallery.ui.TrashScreen
+import com.elli0t0.gallery.ui.EditorScreen
 import com.elli0t0.gallery.ui.ViewerScreen
 
 class MainActivity : ComponentActivity() {
@@ -129,7 +130,11 @@ class MainActivity : ComponentActivity() {
                 }
                 LaunchedEffect(screen) { selectionActive = false }
 
-                when (val current = screen) {
+                var editorItem by remember { mutableStateOf<MediaItem?>(null) }
+                val editing = editorItem
+                if (editing != null) {
+                    EditorScreen(item = editing, onClose = { editorItem = null })
+                } else when (val current = screen) {
                     is Screen.Viewer -> ViewerScreen(
                         list = current.list,
                         startIndex = current.index,
@@ -139,7 +144,8 @@ class MainActivity : ComponentActivity() {
                         onToggleFavorite = { item, add -> viewModel.setFavorites(listOf(item), add) },
                         onDeleteToTrash = { item -> viewModel.moveToTrash(listOf(item)) },
                         onAddTag = { item, tag -> viewModel.setTag(item, tag, true) },
-                        onRemoveTag = { item, tag -> viewModel.setTag(item, tag, false) }
+                        onRemoveTag = { item, tag -> viewModel.setTag(item, tag, false) },
+                        onEdit = { editorItem = it }
                     )
                     is Screen.AlbumDetail -> {
                         Box(Modifier.fillMaxSize()) {
