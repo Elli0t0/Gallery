@@ -171,4 +171,4 @@ jobs:
           echo "\`${CERT_SHA256}\`" >> release_notes.md
           gh release create "$TAG" "$FINAL_APK" "${FINAL_APK}.sha256" \
             --title "Gallery ${VERSION_NAME} (${VERSION_CODE})" \
-            --notes-file release_notes.md --prerelease
+            --notes-file release_notes.md
