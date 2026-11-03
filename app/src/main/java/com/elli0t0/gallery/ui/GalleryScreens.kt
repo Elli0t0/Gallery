@@ -10,6 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +45,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
@@ -258,6 +263,19 @@ fun PicturesScreen(
             else -> raw
         }
     }
+    val yearToRow = remember(rows) {
+        val map = linkedMapOf<Int, Int>()
+        rows.forEachIndexed { index, row ->
+            if (row is PicRow.GridRow) {
+                val year = Calendar.getInstance()
+                    .apply { timeInMillis = row.items.first().dateTakenMs }
+                    .get(Calendar.YEAR)
+                if (!map.containsKey(year)) map[year] = index
+            }
+        }
+        map
+    }
+    val years = yearToRow.keys.sortedDescending()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -359,8 +377,30 @@ fun PicturesScreen(
             } else {
                 LazyColumn(
                     state = listState,
-                    contentPadding = PaddingValues(bottom = 120.dp),
-                    modifier = Modifier.fillMaxSize()
+                    contentPadding = PaddingValues(
+                        bottom = 120.dp,
+                        top = if (years.size > 1) 52.dp else 0.dp
+                    ),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(inSelection) {
+                            if (inSelection) {
+                                detectDragGesturesAfterLongPress { change, _ ->
+                                    val info = listState.layoutInfo
+                                    val y = change.position.y.toInt()
+                                    val rowInfo = info.visibleItemsInfo.firstOrNull {
+                                        y >= it.offset && y < it.offset + it.size
+                                    } ?: return@detectDragGesturesAfterLongPress
+                                    val row = rows.getOrNull(rowInfo.index) as? PicRow.GridRow
+                                        ?: return@detectDragGesturesAfterLongPress
+                                    val width = info.viewportSize.width.coerceAtLeast(1)
+                                    val column = (change.position.x.toInt() * columns / width)
+                                        .coerceIn(0, columns - 1)
+                                    val item = row.items.getOrNull(column) ?: return@detectDragGesturesAfterLongPress
+                                    if (!selected.contains(item)) selected = selected + item
+                                }
+                            }
+                        }
                 ) {
                     itemsIndexed(rows) { _, row ->
                         when (row) {
@@ -422,6 +462,47 @@ fun PicturesScreen(
                             }
                         }
                     }
+                }
+            }
+            if (years.size > 1) {
+                Row(
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .background(Color.Black)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    years.forEach { year ->
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF2A2A2A))
+                                .clickable {
+                                    scope.launch {
+                                        listState.scrollToItem(yearToRow[year] ?: 0)
+                                    }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text(year.toString(), color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+            if (listState.firstVisibleItemIndex > 5) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 100.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF333333))
+                        .clickable { scope.launch { listState.scrollToItem(0) } },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowUp, null, tint = Color.White)
                 }
             }
             Box(
@@ -799,8 +880,10 @@ fun AlbumTile(album: Album, onClick: (Album) -> Unit) {
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFF1A1A1A))
+                .background(Color(0xFF1A1A1A)),
+            contentAlignment = Alignment.Center
         ) {
+            Icon(Icons.Outlined.Image, null, tint = Color(0xFF555555), modifier = Modifier.size(40.dp))
             album.cover?.let { Thumb(it, Modifier.fillMaxSize()) }
         }
         Spacer(Modifier.height(6.dp))
@@ -931,8 +1014,31 @@ fun ViewerScreen(
                 }
             }
         }
-        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
+        Box(
+            Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable { onBack() },
+            contentAlignment = Alignment.Center
+        ) {
             Icon(Icons.Filled.ArrowBack, null, tint = Color.White)
+        }
+        if (list.isNotEmpty()) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable { showDetails = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Info, null, tint = Color.White)
+            }
         }
         if (list.isNotEmpty()) {
             val current = list[currentIndex]

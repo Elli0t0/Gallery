@@ -176,7 +176,11 @@ fun ViewerBottomPill(
                 Icon(Icons.Filled.MoreVert, null, tint = Color.White)
             }
         }
-        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+            modifier = Modifier.clip(RoundedCornerShape(24.dp))
+        ) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.details)) },
                 onClick = { showMenu = false; onShowDetails() }

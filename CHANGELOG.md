@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.8]
+
+- Round 3: collapsing large headers are now on all screens (Pictures, Albums, Search, Trash, Locations, Settings).
+- Albums: covers never show a bare broken tile — a photo icon sits behind every cover thumb, including video covers.
+- Fast scroller keeps its date bubble and gains year pills (tap a year to jump to it) plus a scroll-to-top button that appears once scrolled down.
+- Tap-and-drag multi-select: long-press, then drag across the grid to add items to the selection.
+- Pinch to change grid columns is unchanged and still works in Pictures.
+- Viewer polish: round translucent top buttons (back on the left, details on the right) and a rounded overflow menu.
+
 ## [0.0.7]
 
 - Round 2: selection More menu now also has Add tag, Edit date and time, and Edit location, alongside Copy/Move to album and favorites; date/time and location are written back to MediaStore, with a toast when an update is not allowed.
