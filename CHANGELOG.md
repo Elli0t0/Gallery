@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.9]
+
+- Round 4: Details sheet now shows megapixels alongside resolution (date/time, file name, path, size, resolution, MP, and tags were already there).
+- Filmstrip now follows the pager: swiping the viewer scrolls the filmstrip so the current thumb stays visible.
+- Copy to clipboard, Set as wallpaper, and Print were already in the viewer overflow menu and are unchanged.
+
 ## [0.0.8]
 
 - Round 3: collapsing large headers are now on all screens (Pictures, Albums, Search, Trash, Locations, Settings).

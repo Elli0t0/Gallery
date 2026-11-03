@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -207,8 +209,15 @@ fun Filmstrip(
     currentIndex: Int,
     onSelect: (Int) -> Unit
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(currentIndex) {
+        if (list.isNotEmpty()) {
+            listState.scrollToItem(currentIndex.coerceIn(0, list.size - 1))
+        }
+    }
     LazyRow(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        state = listState,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         itemsIndexed(list) { index, item ->
@@ -246,6 +255,12 @@ fun DetailsSheet(
                 stringResource(R.string.detail_resolution),
                 if (item.width > 0 && item.height > 0) "${item.width} x ${item.height}" else "—"
             )
+            if (item.width > 0 && item.height > 0) {
+                DetailRow(
+                    "MP",
+                    "%.1f MP".format(item.width.toDouble() * item.height / 1_000_000.0)
+                )
+            }
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.tags), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
