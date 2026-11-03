@@ -220,7 +220,7 @@ fun VideoControls(
                         Box(
                             Modifier
                                 .weight(1f)
-                                .size(height = 45.dp)
+                                .height(45.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .border(
                                     width = if (current) 2.dp else 0.dp,
