@@ -153,6 +153,25 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun removeTag(tag: String) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            _tags.value.filter { (_, tags) -> tags.contains(tag) }.forEach { (uri, _) ->
+                Store.setTag(context, uri, tag, false)
+            }
+        }
+    }
+
+    fun renameTag(oldTag: String, newTag: String) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            _tags.value.filter { (_, tags) -> tags.contains(oldTag) }.forEach { (uri, _) ->
+                Store.setTag(context, uri, oldTag, false)
+                Store.setTag(context, uri, newTag, true)
+            }
+        }
+    }
+
     fun setSetting(key: String, value: Boolean) {
         viewModelScope.launch {
             Store.setSetting(getApplication(), key, value)

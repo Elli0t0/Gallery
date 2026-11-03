@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.0]
+
+- Round 6: Create in the Menu — Collage (2–4 photos into one picture), Slideshow (auto-play every 3 s, tap to pause), and GIF (2–10 photos into a looping GIF, saved to Pictures/Gallery).
+- Tags screen in the Menu: every tag with its photo count, tap to view its photos, rename a tag, or delete it from all photos.
+- Albums: + button creates a new album (pick photos, then Create in the selection bar, name prefilled); long-press an album to rename it (photos move to the new name) or delete it (photos go to Trash, restorable for 30 days).
+
 ## [0.0.10]
 
 - Round 5: video time is now "00:03 / 00:09", mute is an icon button, and the player still starts instantly on the current page.

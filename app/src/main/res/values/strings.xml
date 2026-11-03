@@ -96,4 +96,26 @@
     <string name="invalid_location">Invalid location</string>
     <string name="fullscreen">Fullscreen</string>
     <string name="exit_fullscreen">Exit fullscreen</string>
+    <string name="no_tags">No tags yet</string>
+    <string name="rename_tag">Rename tag</string>
+    <string name="delete_tag">Delete tag</string>
+    <string name="delete_tag_text">This tag will be removed from all photos. The photos themselves are not deleted.</string>
+    <string name="new_album">New album</string>
+    <string name="rename_album">Rename album</string>
+    <string name="delete_album">Delete album</string>
+    <string name="delete_album_text">All photos in this album will be moved to Trash. You can restore them within 30 days.</string>
+    <string name="select_photos_for_album">Select photos, then tap Create in the selection bar</string>
+    <string name="collage">Collage</string>
+    <string name="collage_desc">Combine 2 to 4 photos into one picture</string>
+    <string name="slideshow">Slideshow</string>
+    <string name="slideshow_desc">Play selected photos automatically, one after another</string>
+    <string name="gif">GIF</string>
+    <string name="gif_desc">Turn 2 to 10 photos into a looping GIF</string>
+    <string name="select_photos">Tap photos to select them</string>
+    <string name="create_collage">Create collage</string>
+    <string name="create_gif">Create GIF</string>
+    <string name="start_slideshow">Start slideshow</string>
+    <string name="created">Created</string>
+    <string name="create_failed">Could not create it</string>
+    <string name="rename">Rename</string>
 </resources>

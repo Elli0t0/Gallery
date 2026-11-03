@@ -96,4 +96,26 @@
     <string name="invalid_location">مکان نامعتبر است</string>
     <string name="fullscreen">تمام‌صفحه</string>
     <string name="exit_fullscreen">خروج از تمام‌صفحه</string>
+    <string name="no_tags">هنوز برچسبی نیست</string>
+    <string name="rename_tag">تغییر نام برچسب</string>
+    <string name="delete_tag">حذف برچسب</string>
+    <string name="delete_tag_text">این برچسب از همهٔ عکس‌ها حذف می‌شود. خود عکس‌ها حذف نمی‌شوند.</string>
+    <string name="new_album">آلبوم جدید</string>
+    <string name="rename_album">تغییر نام آلبوم</string>
+    <string name="delete_album">حذف آلبوم</string>
+    <string name="delete_album_text">همهٔ عکس‌های این آلبوم به سطل زباله منتقل می‌شوند. تا ۳۰ روز می‌توانید آن‌ها را برگردانید.</string>
+    <string name="select_photos_for_album">عکس‌ها را انتخاب کنید، سپس در نوار انتخاب روی ایجاد بزنید</string>
+    <string name="collage">کلاژ</string>
+    <string name="collage_desc">ترکیب ۲ تا ۴ عکس در یک تصویر</string>
+    <string name="slideshow">نمایش اسلاید</string>
+    <string name="slideshow_desc">پخش خودکار عکس‌های انتخاب‌شده، یکی پس از دیگری</string>
+    <string name="gif">گیف</string>
+    <string name="gif_desc">تبدیل ۲ تا ۱۰ عکس به یک گیف تکرارشونده</string>
+    <string name="select_photos">برای انتخاب، روی عکس‌ها بزنید</string>
+    <string name="create_collage">ساخت کلاژ</string>
+    <string name="create_gif">ساخت گیف</string>
+    <string name="start_slideshow">شروع نمایش اسلاید</string>
+    <string name="created">ساخته شد</string>
+    <string name="create_failed">ساخته نشد</string>
+    <string name="rename">تغییر نام</string>
 </resources>

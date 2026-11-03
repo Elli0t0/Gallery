@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -38,7 +39,9 @@ import androidx.core.content.ContextCompat
 import com.elli0t0.gallery.data.Album
 import com.elli0t0.gallery.data.MediaItem
 import com.elli0t0.gallery.ui.AlbumsScreen
+import com.elli0t0.gallery.ui.CreateScreen
 import com.elli0t0.gallery.ui.GalleryTheme
+import com.elli0t0.gallery.ui.TagsScreen
 import com.elli0t0.gallery.ui.LocationsScreen
 import com.elli0t0.gallery.ui.MenuDestination
 import com.elli0t0.gallery.ui.MenuPopup
@@ -63,6 +66,9 @@ class MainActivity : ComponentActivity() {
         data object Trash : Screen
         data object Locations : Screen
         data object Settings : Screen
+        data object Create : Screen
+        data object Tags : Screen
+        data class TagItems(val tag: String) : Screen
     }
 
     override fun onResume() {
@@ -84,6 +90,7 @@ class MainActivity : ComponentActivity() {
                 var showMenu by remember { mutableStateOf(false) }
                 var tab by remember { mutableStateOf(0) }
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+                var pendingAlbumName by remember { mutableStateOf("") }
                 var selectionActive by remember { mutableStateOf(false) }
                 val homeListState = rememberLazyListState()
                 val activityContext = androidx.compose.ui.platform.LocalContext.current
@@ -137,6 +144,8 @@ class MainActivity : ComponentActivity() {
                         MenuDestination.LOCATIONS -> Screen.Locations
                         MenuDestination.TRASH -> Screen.Trash
                         MenuDestination.SETTINGS -> Screen.Settings
+                        MenuDestination.CREATE -> Screen.Create
+                        MenuDestination.TAGS -> Screen.Tags
                     }
                 }
                 LaunchedEffect(screen) { selectionActive = false }
@@ -213,6 +222,38 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Screen.Search -> SearchScreen(visible, { l, idx -> screen = Screen.Viewer(l, idx) }) { screen = Screen.Home }
+                    Screen.Create -> CreateScreen(
+                        items = visible,
+                        onBack = { screen = Screen.Home },
+                        onCreated = { viewModel.load(); screen = Screen.Home; tab = 0 }
+                    )
+                    Screen.Tags -> TagsScreen(
+                        tags = tags,
+                        onBack = { screen = Screen.Home },
+                        onOpenTag = { tag -> screen = Screen.TagItems(tag) },
+                        onDeleteTag = { viewModel.removeTag(it) },
+                        onRenameTag = { old, new -> viewModel.renameTag(old, new) }
+                    )
+                    is Screen.TagItems -> {
+                        Box(Modifier.fillMaxSize()) {
+                            PicturesScreen(
+                                items = visible.filter { tags[it.uri.toString()]?.contains(current.tag) == true },
+                                onOpen = { l, idx -> screen = Screen.Viewer(l, idx) },
+                                onSearch = { screen = Screen.Search },
+                                onRefresh = { viewModel.load() },
+                                titleText = current.tag,
+                                albumNames = albumNames,
+                                isLoading = loading,
+                                onMoveToTrash = { viewModel.moveToTrash(it) },
+                                onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
+                                onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
+                                onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
+                                onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
+                                onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
+                                onSelectionChanged = { selectionActive = it }
+                            )
+                        }
+                    }
                     Screen.Trash -> {
                         val trashedItems = items.filter { trash.containsKey(it.uri.toString()) }
                             .sortedByDescending { trash[it.uri.toString()] ?: 0L }
@@ -252,7 +293,8 @@ class MainActivity : ComponentActivity() {
                                     onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
                                     onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
                                     onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
-                                    onSelectionChanged = { selectionActive = it }
+                                    onSelectionChanged = { selectionActive = it },
+                                    pendingAlbumName = pendingAlbumName
                                 )
                             } else {
                                 AlbumsScreen(
@@ -260,7 +302,15 @@ class MainActivity : ComponentActivity() {
                                     all = viewModel.albums(),
                                     onOpenAlbum = { album -> screen = Screen.AlbumDetail(album) },
                                     onSearch = { screen = Screen.Search },
-                                    showEssential = settings.essentialAlbums
+                                    showEssential = settings.essentialAlbums,
+                                    onCreateAlbum = { name ->
+                                        pendingAlbumName = name
+                                        screen = Screen.Home
+                                        tab = 0
+                                        Toast.makeText(activityContext, R.string.select_photos_for_album, Toast.LENGTH_SHORT).show()
+                                    },
+                                    onRenameAlbum = { album, name -> viewModel.copyToAlbum(album.items, name, true) },
+                                    onDeleteAlbum = { album -> viewModel.moveToTrash(album.items) }
                                 )
                             }
                             if (!selectionActive) {

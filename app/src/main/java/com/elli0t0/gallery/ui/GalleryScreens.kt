@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
@@ -182,7 +183,8 @@ fun PicturesScreen(
     onAddTagToSelected: (List<MediaItem>, String) -> Unit = { _, _ -> },
     onEditDateTime: (List<MediaItem>, Long) -> Unit = { _, _ -> },
     onEditLocation: (List<MediaItem>, Double, Double) -> Unit = { _, _, _ -> },
-    onSelectionChanged: (Boolean) -> Unit = {}
+    onSelectionChanged: (Boolean) -> Unit = {},
+    pendingAlbumName: String = ""
 ) {
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -568,7 +570,7 @@ fun PicturesScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.create), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { albumDialogMode = "create"; albumName = "" })
+                        Text(stringResource(R.string.create), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { albumDialogMode = "create"; albumName = pendingAlbumName })
                         Text(stringResource(R.string.share), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { shareSelected() })
                         Text(stringResource(R.string.delete), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { showDeleteDialog = true })
                         Box {
@@ -820,10 +822,19 @@ fun AlbumsScreen(
     all: List<Album>,
     onOpenAlbum: (Album) -> Unit,
     onSearch: () -> Unit = {},
-    showEssential: Boolean = true
+    showEssential: Boolean = true,
+    onCreateAlbum: (String) -> Unit = {},
+    onRenameAlbum: (Album, String) -> Unit = { _, _ -> },
+    onDeleteAlbum: (Album) -> Unit = {}
 ) {
     val context = LocalContext.current
     var showAll by remember { mutableStateOf(false) }
+    var showNewAlbum by remember { mutableStateOf(false) }
+    var newAlbumName by remember { mutableStateOf("") }
+    var albumOptions by remember { mutableStateOf<Album?>(null) }
+    var renameAlbum by remember { mutableStateOf<Album?>(null) }
+    var renameText by remember { mutableStateOf("") }
+    var deleteAlbum by remember { mutableStateOf<Album?>(null) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -832,6 +843,9 @@ fun AlbumsScreen(
             LargeTopAppBar(
                 title = { Text(stringResource(R.string.albums), fontWeight = FontWeight.Bold) },
                 actions = {
+                    IconButton(onClick = { showNewAlbum = true }) {
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.new_album))
+                    }
                     IconButton(onClick = onSearch) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search))
                     }
@@ -860,21 +874,126 @@ fun AlbumsScreen(
                         )
                     }
                 }
-                items(essential) { album -> AlbumTile(album, onOpenAlbum) }
+                items(essential) { album -> AlbumTile(album, onOpenAlbum) { albumOptions = album } }
             }
             if (showAll || !showEssential) {
                 item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
                     Text(stringResource(R.string.all_albums), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 16.dp))
                 }
-                items(all) { album -> AlbumTile(album, onOpenAlbum) }
+                items(all) { album -> AlbumTile(album, onOpenAlbum) { albumOptions = album } }
             }
         }
     }
+
+    if (showNewAlbum) {
+        AlertDialog(
+            onDismissRequest = { showNewAlbum = false },
+            title = { Text(stringResource(R.string.new_album)) },
+            text = {
+                TextField(
+                    value = newAlbumName,
+                    onValueChange = { newAlbumName = it },
+                    label = { Text(stringResource(R.string.album_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = newAlbumName.isNotBlank(),
+                    onClick = {
+                        onCreateAlbum(newAlbumName.trim())
+                        showNewAlbum = false
+                        newAlbumName = ""
+                    }
+                ) { Text(stringResource(R.string.confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewAlbum = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+    if (albumOptions != null) {
+        val album = albumOptions!!
+        Dialog(onDismissRequest = { albumOptions = null }) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(CardColor)
+                    .padding(24.dp)
+            ) {
+                Text(album.name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    stringResource(R.string.rename_album), color = Color.White, fontSize = 15.sp,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        albumOptions = null
+                        renameAlbum = album
+                        renameText = album.name
+                    }.padding(vertical = 8.dp)
+                )
+                Text(
+                    stringResource(R.string.delete_album), color = Color(0xFFFF453A), fontSize = 15.sp,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        albumOptions = null
+                        deleteAlbum = album
+                    }.padding(vertical = 8.dp)
+                )
+            }
+        }
+    }
+    if (renameAlbum != null) {
+        val album = renameAlbum!!
+        AlertDialog(
+            onDismissRequest = { renameAlbum = null },
+            title = { Text(stringResource(R.string.rename_album)) },
+            text = {
+                TextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    label = { Text(stringResource(R.string.album_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = renameText.isNotBlank() && renameText.trim() != album.name,
+                    onClick = {
+                        onRenameAlbum(album, renameText.trim())
+                        renameAlbum = null
+                    }
+                ) { Text(stringResource(R.string.confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameAlbum = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+    if (deleteAlbum != null) {
+        val album = deleteAlbum!!
+        AlertDialog(
+            onDismissRequest = { deleteAlbum = null },
+            title = { Text(stringResource(R.string.delete_album)) },
+            text = { Text(stringResource(R.string.delete_album_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteAlbum(album)
+                    deleteAlbum = null
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteAlbum = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AlbumTile(album: Album, onClick: (Album) -> Unit) {
-    Column(Modifier.clickable { onClick(album) }) {
+fun AlbumTile(album: Album, onClick: (Album) -> Unit, onLongClick: (Album) -> Unit = {}) {
+    Column(Modifier.combinedClickable(onClick = { onClick(album) }, onLongClick = { onLongClick(album) })) {
         Box(
             Modifier
                 .fillMaxWidth()
@@ -892,7 +1011,7 @@ fun AlbumTile(album: Album, onClick: (Album) -> Unit) {
     }
 }
 
-enum class MenuDestination { VIDEOS, FAVORITES, RECENT, LOCATIONS, TRASH, SETTINGS }
+enum class MenuDestination { VIDEOS, FAVORITES, RECENT, LOCATIONS, TRASH, SETTINGS, CREATE, TAGS }
 
 @Composable
 fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
@@ -910,7 +1029,9 @@ fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
                 Triple(R.string.recent, Icons.Filled.AccessTime, MenuDestination.RECENT),
                 Triple(R.string.locations, Icons.Filled.Place, MenuDestination.LOCATIONS),
                 Triple(R.string.trash, Icons.Filled.Delete, MenuDestination.TRASH),
-                Triple(R.string.settings, Icons.Filled.Settings, MenuDestination.SETTINGS)
+                Triple(R.string.settings, Icons.Filled.Settings, MenuDestination.SETTINGS),
+                Triple(R.string.create, Icons.Filled.Add, MenuDestination.CREATE),
+                Triple(R.string.tags, Icons.Filled.Label, MenuDestination.TAGS)
             )
             items.chunked(4).forEach { rowItems ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

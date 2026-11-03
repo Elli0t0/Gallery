@@ -360,3 +360,113 @@ fun SettingsScreen(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TagsScreen(
+    tags: Map<String, Set<String>>,
+    onBack: () -> Unit,
+    onOpenTag: (String) -> Unit,
+    onDeleteTag: (String) -> Unit,
+    onRenameTag: (String, String) -> Unit
+) {
+    val tagNames = tags.values.flatten().toSet().sorted()
+    var renameTag by remember { mutableStateOf<String?>(null) }
+    var renameText by remember { mutableStateOf("") }
+    var deleteTag by remember { mutableStateOf<String?>(null) }
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = Color.Black,
+        topBar = {
+            LargeTopAppBar(
+                title = { Text(stringResource(R.string.tags), fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.ArrowBack, null, tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Black),
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ) { padding ->
+        if (tagNames.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text(stringResource(R.string.no_tags), color = Color.Gray, fontSize = 16.sp)
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize().padding(padding)
+            ) {
+                items(tagNames) { tag ->
+                    val count = tags.count { (_, set) -> set.contains(tag) }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFF1A1A1A))
+                            .clickable { onOpenTag(tag) }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(tag, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("$count", color = Color.Gray, fontSize = 13.sp)
+                        }
+                        TextButton(onClick = { renameTag = tag; renameText = tag }) {
+                            Text(stringResource(R.string.rename))
+                        }
+                        IconButton(onClick = { deleteTag = tag }) {
+                            Icon(Icons.Filled.Delete, null, tint = Color(0xFFFF453A))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (renameTag != null) {
+        AlertDialog(
+            onDismissRequest = { renameTag = null },
+            title = { Text(stringResource(R.string.rename_tag)) },
+            text = {
+                TextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = renameText.isNotBlank(),
+                    onClick = {
+                        onRenameTag(renameTag!!, renameText.trim())
+                        renameTag = null
+                    }
+                ) { Text(stringResource(R.string.confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTag = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+    if (deleteTag != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTag = null },
+            title = { Text(stringResource(R.string.delete_tag)) },
+            text = { Text(stringResource(R.string.delete_tag_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteTag(deleteTag!!)
+                    deleteTag = null
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTag = null }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+}
