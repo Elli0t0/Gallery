@@ -78,6 +78,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
@@ -107,15 +108,18 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -1260,22 +1264,18 @@ enum class MenuDestination { VIDEOS, FAVORITES, RECENT, LOCATIONS, TRASH, SETTIN
 
 @Composable
 fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
-    Dialog(
+    val offsetPx = with(LocalDensity.current) { 96.dp.roundToPx() }
+    Popup(
+        alignment = Alignment.BottomCenter,
+        offset = IntOffset(0, -offsetPx),
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = PopupProperties(focusable = true)
     ) {
-        Box(
-            Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xFF1C1C1E),
+            modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth()
         ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(Color(0xFF2E2E2E))
-                    .padding(24.dp)
-                    .padding(bottom = 16.dp)
-            ) {
             val items = listOf(
                 Triple(R.string.videos, Icons.Filled.PlayCircle, MenuDestination.VIDEOS),
                 Triple(R.string.favorites, Icons.Filled.FavoriteBorder, MenuDestination.FAVORITES),
@@ -1287,24 +1287,19 @@ fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
                 Triple(R.string.tags, Icons.Filled.Label, MenuDestination.TAGS),
                 Triple(R.string.secure_folder, Icons.Filled.Lock, MenuDestination.SECURE_FOLDER)
             )
-            items.chunked(4).forEach { rowItems ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    rowItems.forEach { (label, icon, dest) ->
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onSelect(dest); onDismiss() }
-                                .padding(vertical = 12.dp)
-                        ) {
-                            Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp))
-                            Spacer(Modifier.height(8.dp))
-                            Text(stringResource(label), color = Color.White, fontSize = 13.sp)
-                        }
+            LazyVerticalGrid(GridCells.Fixed(4), contentPadding = PaddingValues(16.dp)) {
+                items(items) { (label, icon, dest) ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clickable { onSelect(dest); onDismiss() }
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(label), color = Color.White, fontSize = 13.sp)
                     }
-                    repeat(4 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                 }
-            }
             }
         }
     }

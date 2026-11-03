@@ -109,6 +109,8 @@ class MainActivity : FragmentActivity() {
                     screen = Screen.Home
                     tab = 0
                 }
+                BackHandler(enabled = showMenu) { showMenu = false }
+                BackHandler(enabled = !showMenu && screen == Screen.Home && tab != 0) { tab = 0 }
 
                 val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5]
+
+- RELEASE B, Menu + bottom nav: Menu is now a floating rounded card (28dp corners, #1C1C1E, 12dp side margins, 96dp above the bottom) instead of a bottom sheet, with the same 9 items in a 4-column grid.
+- Back now closes the menu first, then returns any tab to Pictures; on Pictures with nothing open, back exits the app.
+- Dead editor stub files (EditorScreen, EditorAdjust, EditorEngine) deleted; nothing else used them.
+- Nav pill (3 items, lighter selected highlight) and 120dp list bottom padding were already correct and are unchanged.
+
 ## [0.1.4]
 
 - RELEASE A, Pictures tab only: big header is now the first LazyColumn item and scrolls away; a compact black 56dp bar with centered title fades in after scrolling.
