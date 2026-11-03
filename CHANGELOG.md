@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3]
+
+- Round 1 (Pictures tab) fidelity pass against the reference: header is now a large centered title with the search and overflow actions on a row below it (white icons, same Select/Refresh menu); the reference shot shows no collapsed state, so this header stays static on scroll instead of collapsing.
+- Year pills no longer sit above the grid permanently: they appear only while dragging the fast scroller on the right edge, and the grid's reserved top padding for them is gone.
+- 1970 group fixed: a DATE_TAKEN below 100_000_000_000 ms is now treated as invalid and falls back to DATE_MODIFIED, then DATE_ADDED, and the list is sorted by the corrected date.
+- Bottom pill nav now matches the reference width (62% of the screen, capped at 340 dp) with a 12 dp bottom margin, and the Albums icon is a stacked-photos outline instead of a disc.
+- Launcher icon rebuilt as an adaptive vector: dark background, white outlined rounded square, blue mountain, yellow sun, plus a monochrome layer for themed icons.
+
 ## [0.1.2]
 
 - Round 8: long-press an album and choose Merge into… to move all its photos into another album (the case-insensitive merge toggle in Settings is unchanged).

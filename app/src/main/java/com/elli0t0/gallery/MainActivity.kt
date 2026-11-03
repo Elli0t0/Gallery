@@ -233,7 +233,7 @@ class MainActivity : FragmentActivity() {
                                 onSelectionChanged = { selectionActive = it }
                             )
                             if (!selectionActive) {
-                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
+                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)) {
                                     PillNav(tab) { i ->
                                         tab = i
                                         screen = Screen.Home
@@ -263,7 +263,7 @@ class MainActivity : FragmentActivity() {
                                 onSelectionChanged = { selectionActive = it }
                             )
                             if (!selectionActive) {
-                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
+                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)) {
                                     PillNav(tab) { i ->
                                         tab = i
                                         screen = Screen.Home
@@ -360,7 +360,8 @@ class MainActivity : FragmentActivity() {
                                     onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
                                 onMoveToSecure = { viewModel.moveToSecure(it) },
                                     onSelectionChanged = { selectionActive = it },
-                                    pendingAlbumName = pendingAlbumName
+                                    pendingAlbumName = pendingAlbumName,
+                                    centeredHeader = true
                                 )
                             } else {
                                 AlbumsScreen(
@@ -381,7 +382,7 @@ class MainActivity : FragmentActivity() {
                                 )
                             }
                             if (!selectionActive) {
-                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) {
+                                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)) {
                                     PillNav(tab) { i ->
                                         tab = i
                                         if (i == 2) {

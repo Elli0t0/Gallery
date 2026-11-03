@@ -23,6 +23,7 @@ object MediaRepository {
             MediaStore.MediaColumns._ID,
             MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.MediaColumns.DATE_TAKEN,
+            MediaStore.MediaColumns.DATE_MODIFIED,
             MediaStore.MediaColumns.DATE_ADDED,
             MediaStore.MediaColumns.MIME_TYPE,
             MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
@@ -42,6 +43,7 @@ object MediaRepository {
             val idCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
             val nameCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
             val takenCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN)
+            val modifiedCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
             val addedCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
             val mimeCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
             val bucketCol = it.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
@@ -55,8 +57,16 @@ object MediaRepository {
             while (it.moveToNext()) {
                 val id = it.getLong(idCol)
                 val taken = it.getLong(takenCol)
+                val modifiedSec = it.getLong(modifiedCol)
                 val addedSec = it.getLong(addedCol)
-                val dateMs = if (taken > 0) taken else addedSec * 1000L
+                // A bogus DATE_TAKEN (anything below 100_000_000_000 ms,
+                // i.e. before Mar 1973) groups the item under 1970, so
+                // fall back to DATE_MODIFIED, then DATE_ADDED.
+                val dateMs = when {
+                    taken >= 100_000_000_000L -> taken
+                    modifiedSec > 0 -> modifiedSec * 1000L
+                    else -> addedSec * 1000L
+                }
                 val mime = it.getString(mimeCol) ?: if (isVideo) "video/mp4" else "image/jpeg"
                 out += MediaItem(
                     id = id,

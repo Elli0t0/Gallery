@@ -27,7 +27,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -100,8 +102,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -170,6 +174,65 @@ private sealed interface PicRow {
     data class GridRow(val items: List<MediaItem>) : PicRow
 }
 
+/**
+ * Reference-style Pictures header: a large centered title with the
+ * search and overflow actions on a row below it. The top padding and
+ * the title/actions gap match the reference shot's proportions
+ * (title center ~16% down the screen, actions ~29% down). The shot
+ * shows no collapsed state, so this header stays static on scroll
+ * instead of collapsing like the other screens' bars.
+ */
+@Composable
+private fun CenteredPicturesHeader(
+    title: String,
+    onSearch: () -> Unit,
+    onRefresh: () -> Unit,
+    onSelectFirst: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+            .statusBarsPadding()
+    ) {
+        Text(
+            title,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 80.dp)
+        )
+        Spacer(Modifier.height(48.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            IconButton(onClick = onSearch) {
+                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search), tint = Color.White)
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more), tint = Color.White)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.select)) },
+                        onClick = { showMenu = false; onSelectFirst() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.refresh)) },
+                        onClick = { showMenu = false; onRefresh() }
+                    )
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PicturesScreen(
@@ -190,7 +253,8 @@ fun PicturesScreen(
     onEditLocation: (List<MediaItem>, Double, Double) -> Unit = { _, _, _ -> },
     onSelectionChanged: (Boolean) -> Unit = {},
     pendingAlbumName: String = "",
-    onMoveToSecure: (List<MediaItem>) -> Unit = {}
+    onMoveToSecure: (List<MediaItem>) -> Unit = {},
+    centeredHeader: Boolean = false
 ) {
     val context = LocalContext.current
     val isRtlLayout = androidx.compose.ui.platform.LocalLayoutDirection.current ==
@@ -308,6 +372,13 @@ fun PicturesScreen(
                     colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Black),
                     scrollBehavior = scrollBehavior
                 )
+            } else if (centeredHeader) {
+                CenteredPicturesHeader(
+                    title = titleText ?: stringResource(titleRes),
+                    onSearch = onSearch,
+                    onRefresh = onRefresh,
+                    onSelectFirst = { if (items.isNotEmpty()) selected = setOf(items.first()) }
+                )
             } else {
                 LargeTopAppBar(
                     title = { Text(titleText ?: stringResource(titleRes), fontWeight = FontWeight.Bold) },
@@ -389,7 +460,7 @@ fun PicturesScreen(
                     state = listState,
                     contentPadding = PaddingValues(
                         bottom = 120.dp,
-                        top = if (years.size > 1) 52.dp else 0.dp
+                        top = 0.dp
                     ),
                     modifier = Modifier
                         .fillMaxSize()
@@ -488,7 +559,7 @@ fun PicturesScreen(
                     }
                 }
             }
-            if (years.size > 1) {
+            if (dragging && years.size > 1) {
                 Row(
                     Modifier
                         .align(Alignment.TopStart)
@@ -1410,7 +1481,8 @@ fun ZoomableImage(item: MediaItem) {
 fun PillNav(selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier
-            .width(340.dp)
+            .fillMaxWidth(0.62f)
+            .widthIn(max = 340.dp)
             .height(72.dp)
             .clip(RoundedCornerShape(36.dp))
             .background(PillColor)
@@ -1432,7 +1504,11 @@ fun PillNav(selected: Int, onSelect: (Int) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onSelect(i) }) {
-                    Icon(icons[i], null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    if (i == 1) {
+                        Icon(painterResource(id = R.drawable.ic_albums), null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Icon(icons[i], null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
                     Text(stringResource(label), color = Color.White, fontSize = 12.sp)
                 }
             }
