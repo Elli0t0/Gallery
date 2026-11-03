@@ -118,4 +118,14 @@
     <string name="created">ساخته شد</string>
     <string name="create_failed">ساخته نشد</string>
     <string name="rename">تغییر نام</string>
+    <string name="secure_folder">پوشهٔ امن</string>
+    <string name="secure_empty">هنوز چیزی پنهان نشده است</string>
+    <string name="secure_preview_unavailable">پیش‌نمایش این مورد در دسترس نیست</string>
+    <string name="close">بستن</string>
+    <string name="pin">رمز</string>
+    <string name="set_pin">یک رمز برای پوشهٔ امن تعیین کنید</string>
+    <string name="enter_pin">رمز را وارد کنید</string>
+    <string name="use_pin">استفاده از رمز</string>
+    <string name="wrong_pin">رمز اشتباه است</string>
+    <string name="move_to_secure">انتقال به پوشهٔ امن</string>
 </resources>

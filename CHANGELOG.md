@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.1]
+
+- Round 7: Secure Folder in the Menu — first open sets a PIN, later opens ask for fingerprint first with a PIN fallback. Selection menu gains Move to Secure Folder: files are AES-256/GCM encrypted into app-private storage and the original is deleted only after the encrypted copy verifies; inside you can view, restore to Pictures/Restored, or delete. Leaving the folder locks it again.
+- Reference fidelity: Menu is now a bottom sheet like the reference, the selection bar uses icons (Create, Share, Delete, More), and selected photos show a white circle with a black check.
+
 ## [0.1.0]
 
 - Round 6: Create in the Menu — Collage (2–4 photos into one picture), Slideshow (auto-play every 3 s, tap to pause), and GIF (2–10 photos into a looping GIF, saved to Pictures/Gallery).

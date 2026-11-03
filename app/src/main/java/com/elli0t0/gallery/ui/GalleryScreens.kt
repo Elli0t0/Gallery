@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
@@ -55,6 +56,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Menu
@@ -103,6 +106,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -184,7 +188,8 @@ fun PicturesScreen(
     onEditDateTime: (List<MediaItem>, Long) -> Unit = { _, _ -> },
     onEditLocation: (List<MediaItem>, Double, Double) -> Unit = { _, _, _ -> },
     onSelectionChanged: (Boolean) -> Unit = {},
-    pendingAlbumName: String = ""
+    pendingAlbumName: String = "",
+    onMoveToSecure: (List<MediaItem>) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -441,9 +446,14 @@ fun PicturesScreen(
                                                     .padding(8.dp)
                                                     .size(24.dp)
                                                     .clip(CircleShape)
-                                                    .background(if (isSel) Color(0xFF0A84FF) else Color.Transparent)
-                                                    .border(BorderStroke(2.dp, Color.White), CircleShape)
-                                            )
+                                                    .background(if (isSel) Color.White else Color.Transparent)
+                                                    .border(BorderStroke(2.dp, Color.White), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isSel) {
+                                                    Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                                }
+                                            }
                                         }
                                         if (item.isVideo) {
                                             Row(
@@ -567,14 +577,38 @@ fun PicturesScreen(
                             .clip(RoundedCornerShape(36.dp))
                             .background(PillColor)
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.create), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { albumDialogMode = "create"; albumName = pendingAlbumName })
-                        Text(stringResource(R.string.share), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { shareSelected() })
-                        Text(stringResource(R.string.delete), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { showDeleteDialog = true })
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { albumDialogMode = "create"; albumName = pendingAlbumName }.padding(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                            Text(stringResource(R.string.create), color = Color.White, fontSize = 12.sp)
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { shareSelected() }.padding(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Filled.Share, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                            Text(stringResource(R.string.share), color = Color.White, fontSize = 12.sp)
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { showDeleteDialog = true }.padding(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Filled.Delete, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                            Text(stringResource(R.string.delete), color = Color.White, fontSize = 12.sp)
+                        }
                         Box {
-                            Text(stringResource(R.string.more), color = Color.White, fontSize = 14.sp, modifier = Modifier.clickable { showMoreMenu = true })
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.clickable { showMoreMenu = true }.padding(horizontal = 4.dp)
+                            ) {
+                                Icon(Icons.Filled.MoreVert, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                Text(stringResource(R.string.more), color = Color.White, fontSize = 12.sp)
+                            }
                             DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.copy_to_album)) },
@@ -595,6 +629,14 @@ fun PicturesScreen(
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.add_tag)) },
                                     onClick = { showMoreMenu = false; tagText = ""; tagDialog = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.move_to_secure)) },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        onMoveToSecure(selected.toList())
+                                        selected = emptySet()
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.edit_date_time)) },
@@ -1011,18 +1053,26 @@ fun AlbumTile(album: Album, onClick: (Album) -> Unit, onLongClick: (Album) -> Un
     }
 }
 
-enum class MenuDestination { VIDEOS, FAVORITES, RECENT, LOCATIONS, TRASH, SETTINGS, CREATE, TAGS }
+enum class MenuDestination { VIDEOS, FAVORITES, RECENT, LOCATIONS, TRASH, SETTINGS, CREATE, TAGS, SECURE_FOLDER }
 
 @Composable
 fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(CardColor)
-                .padding(24.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
         ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .background(Color(0xFF2E2E2E))
+                    .padding(24.dp)
+                    .padding(bottom = 16.dp)
+            ) {
             val items = listOf(
                 Triple(R.string.videos, Icons.Filled.PlayCircle, MenuDestination.VIDEOS),
                 Triple(R.string.favorites, Icons.Filled.FavoriteBorder, MenuDestination.FAVORITES),
@@ -1031,7 +1081,8 @@ fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
                 Triple(R.string.trash, Icons.Filled.Delete, MenuDestination.TRASH),
                 Triple(R.string.settings, Icons.Filled.Settings, MenuDestination.SETTINGS),
                 Triple(R.string.create, Icons.Filled.Add, MenuDestination.CREATE),
-                Triple(R.string.tags, Icons.Filled.Label, MenuDestination.TAGS)
+                Triple(R.string.tags, Icons.Filled.Label, MenuDestination.TAGS),
+                Triple(R.string.secure_folder, Icons.Filled.Lock, MenuDestination.SECURE_FOLDER)
             )
             items.chunked(4).forEach { rowItems ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -1050,6 +1101,7 @@ fun MenuPopup(onDismiss: () -> Unit, onSelect: (MenuDestination) -> Unit) {
                     }
                     repeat(4 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                 }
+            }
             }
         }
     }

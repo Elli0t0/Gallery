@@ -7,7 +7,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,11 +35,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import com.elli0t0.gallery.data.Album
 import com.elli0t0.gallery.data.MediaItem
 import com.elli0t0.gallery.ui.AlbumsScreen
 import com.elli0t0.gallery.ui.CreateScreen
 import com.elli0t0.gallery.ui.GalleryTheme
+import com.elli0t0.gallery.ui.PinDialog
+import com.elli0t0.gallery.ui.SecureCrypto
+import com.elli0t0.gallery.ui.SecureFolderScreen
 import com.elli0t0.gallery.ui.TagsScreen
 import com.elli0t0.gallery.ui.LocationsScreen
 import com.elli0t0.gallery.ui.MenuDestination
@@ -53,7 +56,7 @@ import com.elli0t0.gallery.ui.TrashScreen
 import com.elli0t0.gallery.ui.ViewerScreen
 import com.elli0t0.gallery.ui.launchExternalEditor
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val viewModel: GalleryViewModel by viewModels()
 
@@ -69,6 +72,7 @@ class MainActivity : ComponentActivity() {
         data object Create : Screen
         data object Tags : Screen
         data class TagItems(val tag: String) : Screen
+        data object Secure : Screen
     }
 
     override fun onResume() {
@@ -78,12 +82,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val fragmentActivity = this
         setContent {
             GalleryTheme {
                 val items by viewModel.items.collectAsState()
                 val loading by viewModel.loading.collectAsState()
                 val favorites by viewModel.favorites.collectAsState()
                 val tags by viewModel.tags.collectAsState()
+                val secureItems by viewModel.secureItems.collectAsState()
+                val securePin by viewModel.securePin.collectAsState()
                 val trash by viewModel.trash.collectAsState()
                 val settings by viewModel.settings.collectAsState()
                 var granted by remember { mutableStateOf(hasMediaPermission()) }
@@ -91,6 +98,9 @@ class MainActivity : ComponentActivity() {
                 var tab by remember { mutableStateOf(0) }
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
                 var pendingAlbumName by remember { mutableStateOf("") }
+                var secureUnlocked by remember { mutableStateOf(false) }
+                var showSetPin by remember { mutableStateOf(false) }
+                var showPinUnlock by remember { mutableStateOf(false) }
                 var selectionActive by remember { mutableStateOf(false) }
                 val homeListState = rememberLazyListState()
                 val activityContext = androidx.compose.ui.platform.LocalContext.current
@@ -133,6 +143,35 @@ class MainActivity : ComponentActivity() {
 
                 val visible = viewModel.visibleItems()
                 val albumNames = viewModel.albums().map { it.name }
+                fun showBiometricUnlock() {
+                    val manager = androidx.biometric.BiometricManager.from(activityContext)
+                    val canBiometric = manager.canAuthenticate(
+                        androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+                    ) == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS
+                    if (!canBiometric) {
+                        showPinUnlock = true
+                        return
+                    }
+                    val prompt = androidx.biometric.BiometricPrompt(
+                        fragmentActivity,
+                        ContextCompat.getMainExecutor(fragmentActivity),
+                        object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                                secureUnlocked = true
+                                screen = Screen.Secure
+                            }
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                showPinUnlock = true
+                            }
+                        }
+                    )
+                    prompt.authenticate(
+                        androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                            .setTitle(activityContext.getString(R.string.secure_folder))
+                            .setNegativeButtonText(activityContext.getString(R.string.use_pin))
+                            .build()
+                    )
+                }
                 fun openMenuDestination(dest: MenuDestination) {
                     screen = when (dest) {
                         MenuDestination.VIDEOS -> Screen.ListScreen(R.string.videos, visible.filter { it.isVideo })
@@ -146,6 +185,16 @@ class MainActivity : ComponentActivity() {
                         MenuDestination.SETTINGS -> Screen.Settings
                         MenuDestination.CREATE -> Screen.Create
                         MenuDestination.TAGS -> Screen.Tags
+                        MenuDestination.SECURE_FOLDER -> {
+                            if (secureUnlocked) Screen.Secure
+                            else if (securePin == null) {
+                                showSetPin = true
+                                Screen.Home
+                            } else {
+                                showBiometricUnlock()
+                                Screen.Home
+                            }
+                        }
                     }
                 }
                 LaunchedEffect(screen) { selectionActive = false }
@@ -179,6 +228,7 @@ class MainActivity : ComponentActivity() {
                                 onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
                                 onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
                                 onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
+                                onMoveToSecure = { viewModel.moveToSecure(it) },
                                 onSelectionChanged = { selectionActive = it }
                             )
                             if (!selectionActive) {
@@ -208,6 +258,7 @@ class MainActivity : ComponentActivity() {
                                 onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
                                 onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
                                 onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
+                                onMoveToSecure = { viewModel.moveToSecure(it) },
                                 onSelectionChanged = { selectionActive = it }
                             )
                             if (!selectionActive) {
@@ -222,6 +273,18 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Screen.Search -> SearchScreen(visible, { l, idx -> screen = Screen.Viewer(l, idx) }) { screen = Screen.Home }
+                    Screen.Secure -> {
+                        if (secureUnlocked) {
+                            SecureFolderScreen(
+                                items = secureItems,
+                                onBack = { screen = Screen.Home; secureUnlocked = false },
+                                onRestore = { viewModel.restoreSecure(it) },
+                                onDelete = { viewModel.deleteSecure(it) }
+                            )
+                        } else {
+                            LaunchedEffect(Unit) { screen = Screen.Home }
+                        }
+                    }
                     Screen.Create -> CreateScreen(
                         items = visible,
                         onBack = { screen = Screen.Home },
@@ -250,6 +313,7 @@ class MainActivity : ComponentActivity() {
                                 onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
                                 onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
                                 onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
+                                onMoveToSecure = { viewModel.moveToSecure(it) },
                                 onSelectionChanged = { selectionActive = it }
                             )
                         }
@@ -293,6 +357,7 @@ class MainActivity : ComponentActivity() {
                                     onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
                                     onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
                                     onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
+                                onMoveToSecure = { viewModel.moveToSecure(it) },
                                     onSelectionChanged = { selectionActive = it },
                                     pendingAlbumName = pendingAlbumName
                                 )
@@ -334,6 +399,33 @@ class MainActivity : ComponentActivity() {
                         onSelect = { dest ->
                             selectionActive = false
                             openMenuDestination(dest)
+                        }
+                    )
+                }
+                if (showSetPin) {
+                    PinDialog(
+                        titleRes = R.string.set_pin,
+                        onDismiss = { showSetPin = false },
+                        onConfirm = { pin ->
+                            viewModel.setSecurePin(pin)
+                            showSetPin = false
+                            secureUnlocked = true
+                            screen = Screen.Secure
+                        }
+                    )
+                }
+                if (showPinUnlock) {
+                    PinDialog(
+                        titleRes = R.string.enter_pin,
+                        onDismiss = { showPinUnlock = false },
+                        onConfirm = { pin ->
+                            if (securePin != null && SecureCrypto.hashPin(pin) == securePin) {
+                                showPinUnlock = false
+                                secureUnlocked = true
+                                screen = Screen.Secure
+                            } else {
+                                Toast.makeText(activityContext, R.string.wrong_pin, Toast.LENGTH_SHORT).show()
+                            }
                         }
                     )
                 }

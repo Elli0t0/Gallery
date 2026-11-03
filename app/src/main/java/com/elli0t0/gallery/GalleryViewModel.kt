@@ -30,6 +30,10 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
     val settings: StateFlow<Store.Settings> = _settings
     private val _tags = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
     val tags: StateFlow<Map<String, Set<String>>> = _tags
+    private val _secureItems = MutableStateFlow<List<Store.SecureItem>>(emptyList())
+    val secureItems: StateFlow<List<Store.SecureItem>> = _secureItems
+    private val _securePin = MutableStateFlow<String?>(null)
+    val securePin: StateFlow<String?> = _securePin
 
     private var loadJob: Job? = null
     private val mediaObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -44,6 +48,8 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { Store.trash(context).collect { _trash.value = it } }
         viewModelScope.launch { Store.settings(context).collect { _settings.value = it } }
         viewModelScope.launch { Store.tags(context).collect { _tags.value = it } }
+        viewModelScope.launch { Store.secureItems(context).collect { _secureItems.value = it } }
+        viewModelScope.launch { Store.securePin(context).collect { _securePin.value = it } }
         val resolver = context.contentResolver
         resolver.registerContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, mediaObserver)
         resolver.registerContentObserver(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, mediaObserver)
@@ -175,6 +181,91 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
     fun setSetting(key: String, value: Boolean) {
         viewModelScope.launch {
             Store.setSetting(getApplication(), key, value)
+        }
+    }
+
+    fun setSecurePin(pin: String) {
+        viewModelScope.launch {
+            Store.setSecurePin(getApplication(), com.elli0t0.gallery.ui.SecureCrypto.hashPin(pin))
+        }
+    }
+
+    fun moveToSecure(items: List<MediaItem>) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            var moved = 0
+            items.forEach { item ->
+                try {
+                    val bytes = context.contentResolver.openInputStream(item.uri)?.use { it.readBytes() }
+                        ?: return@forEach
+                    val file = com.elli0t0.gallery.ui.SecureCrypto.encrypt(context, bytes)
+                    // Verify the encrypted file decrypts before deleting the original.
+                    val check = com.elli0t0.gallery.ui.SecureCrypto.decrypt(context, file.name)
+                    if (!check.contentEquals(bytes)) {
+                        file.delete()
+                        return@forEach
+                    }
+                    Store.setSecureItem(
+                        context,
+                        Store.SecureItem(file.name, item.displayName, item.mimeType, item.dateTakenMs),
+                        true
+                    )
+                    MediaRepository.deletePermanently(context, listOf(item))
+                    val stillThere = try {
+                        context.contentResolver.openInputStream(item.uri)?.use { true } ?: false
+                    } catch (_: Exception) {
+                        false
+                    }
+                    if (stillThere) {
+                        // Original could not be deleted (e.g. needs consent): roll back.
+                        Store.setSecureItem(
+                            context,
+                            Store.SecureItem(file.name, item.displayName, item.mimeType, item.dateTakenMs),
+                            false
+                        )
+                        com.elli0t0.gallery.ui.SecureCrypto.delete(context, file.name)
+                    } else {
+                        moved++
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            if (moved > 0) load()
+        }
+    }
+
+    fun restoreSecure(item: Store.SecureItem) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            try {
+                val bytes = com.elli0t0.gallery.ui.SecureCrypto.decrypt(context, item.encName)
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, item.displayName)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, item.mimeType)
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Restored")
+                }
+                val target = if (item.mimeType.startsWith("video/")) {
+                    android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                } else {
+                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                }
+                val uri = context.contentResolver.insert(target, values)
+                if (uri != null) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    Store.setSecureItem(context, item, false)
+                    com.elli0t0.gallery.ui.SecureCrypto.delete(context, item.encName)
+                    load()
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun deleteSecure(item: Store.SecureItem) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            Store.setSecureItem(context, item, false)
+            com.elli0t0.gallery.ui.SecureCrypto.delete(context, item.encName)
         }
     }
 }

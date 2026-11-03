@@ -99,6 +99,8 @@ dependencies {
     implementation(libs.androidx.print)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.tooling)

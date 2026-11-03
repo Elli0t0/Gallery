@@ -118,4 +118,14 @@
     <string name="created">Created</string>
     <string name="create_failed">Could not create it</string>
     <string name="rename">Rename</string>
+    <string name="secure_folder">Secure Folder</string>
+    <string name="secure_empty">Nothing hidden yet</string>
+    <string name="secure_preview_unavailable">Preview is not available for this item</string>
+    <string name="close">Close</string>
+    <string name="pin">PIN</string>
+    <string name="set_pin">Set a PIN for Secure Folder</string>
+    <string name="enter_pin">Enter PIN</string>
+    <string name="use_pin">Use PIN</string>
+    <string name="wrong_pin">Wrong PIN</string>
+    <string name="move_to_secure">Move to Secure Folder</string>
 </resources>
