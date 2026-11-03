@@ -128,4 +128,5 @@
     <string name="use_pin">Use PIN</string>
     <string name="wrong_pin">Wrong PIN</string>
     <string name="move_to_secure">Move to Secure Folder</string>
+    <string name="merge_into">Merge into…</string>
 </resources>

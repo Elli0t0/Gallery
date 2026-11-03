@@ -128,4 +128,5 @@
     <string name="use_pin">استفاده از رمز</string>
     <string name="wrong_pin">رمز اشتباه است</string>
     <string name="move_to_secure">انتقال به پوشهٔ امن</string>
+    <string name="merge_into">ادغام در…</string>
 </resources>

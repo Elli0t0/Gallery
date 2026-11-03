@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2]
+
+- Round 8: long-press an album and choose Merge into… to move all its photos into another album (the case-insensitive merge toggle in Settings is unchanged).
+- Motion photos now autoplay in the viewer when the setting is on: JPEGs with an embedded video play it looping and silent; tap to pause or resume.
+- Speed: grid rows now have stable keys so list updates do not rebuild every row, and grid thumbnails are sized to the current column count instead of a fixed 360 px.
+- RTL pass: drag-select now mirrors the column in right-to-left layouts; other bars already use start/end and mirror automatically.
+
 ## [0.1.1]
 
 - Round 7: Secure Folder in the Menu — first open sets a PIN, later opens ask for fingerprint first with a PIN fallback. Selection menu gains Move to Secure Folder: files are AES-256/GCM encrypted into app-private storage and the original is deleted only after the encrypted copy verifies; inside you can view, restore to Pictures/Restored, or delete. Leaving the folder locks it again.

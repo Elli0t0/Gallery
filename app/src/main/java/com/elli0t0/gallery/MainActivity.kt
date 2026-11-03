@@ -210,7 +210,8 @@ class MainActivity : FragmentActivity() {
                         onDeleteToTrash = { item -> viewModel.moveToTrash(listOf(item)) },
                         onAddTag = { item, tag -> viewModel.setTag(item, tag, true) },
                         onRemoveTag = { item, tag -> viewModel.setTag(item, tag, false) },
-                        onEdit = { launchExternalEditor(activityContext, it) }
+                        onEdit = { launchExternalEditor(activityContext, it) },
+                        motionAutoplay = settings.motionAutoplay
                     )
                     is Screen.AlbumDetail -> {
                         Box(Modifier.fillMaxSize()) {
@@ -375,7 +376,8 @@ class MainActivity : FragmentActivity() {
                                         Toast.makeText(activityContext, R.string.select_photos_for_album, Toast.LENGTH_SHORT).show()
                                     },
                                     onRenameAlbum = { album, name -> viewModel.copyToAlbum(album.items, name, true) },
-                                    onDeleteAlbum = { album -> viewModel.moveToTrash(album.items) }
+                                    onDeleteAlbum = { album -> viewModel.moveToTrash(album.items) },
+                                    onMergeAlbum = { album, name -> viewModel.copyToAlbum(album.items, name, true) }
                                 )
                             }
                             if (!selectionActive) {

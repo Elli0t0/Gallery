@@ -120,6 +120,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.hypot
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 fun formatDuration(ms: Long): String {
     val s = (ms / 1000).toInt()
@@ -192,6 +193,8 @@ fun PicturesScreen(
     onMoveToSecure: (List<MediaItem>) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val isRtlLayout = androidx.compose.ui.platform.LocalLayoutDirection.current ==
+        androidx.compose.ui.unit.LayoutDirection.Rtl
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var columns by remember { mutableStateOf(4) }
     val listState = externalListState ?: rememberLazyListState()
@@ -401,15 +404,24 @@ fun PicturesScreen(
                                     val row = rows.getOrNull(rowInfo.index) as? PicRow.GridRow
                                         ?: return@detectDragGesturesAfterLongPress
                                     val width = info.viewportSize.width.coerceAtLeast(1)
-                                    val column = (change.position.x.toInt() * columns / width)
+                                    val rawColumn = (change.position.x.toInt() * columns / width)
                                         .coerceIn(0, columns - 1)
+                                    val column = if (isRtlLayout) columns - 1 - rawColumn else rawColumn
                                     val item = row.items.getOrNull(column) ?: return@detectDragGesturesAfterLongPress
                                     if (!selected.contains(item)) selected = selected + item
                                 }
                             }
                         }
                 ) {
-                    itemsIndexed(rows) { _, row ->
+                    itemsIndexed(
+                        rows,
+                        key = { _, row ->
+                            when (row) {
+                                is PicRow.Header -> "h:${row.label}"
+                                is PicRow.GridRow -> "g:${row.items.firstOrNull()?.id ?: 0}"
+                            }
+                        }
+                    ) { _, row ->
                         when (row) {
                             is PicRow.Header -> Text(
                                 headerLabel(row.label),
@@ -438,7 +450,7 @@ fun PicturesScreen(
                                                 onLongClick = { selected = selected + item }
                                             )
                                     ) {
-                                        Thumb(item, Modifier.fillMaxSize())
+                                        Thumb(item, Modifier.fillMaxSize(), sizePx = (1440 / columns).coerceAtLeast(240))
                                         if (inSelection) {
                                             Box(
                                                 Modifier
@@ -867,7 +879,8 @@ fun AlbumsScreen(
     showEssential: Boolean = true,
     onCreateAlbum: (String) -> Unit = {},
     onRenameAlbum: (Album, String) -> Unit = { _, _ -> },
-    onDeleteAlbum: (Album) -> Unit = {}
+    onDeleteAlbum: (Album) -> Unit = {},
+    onMergeAlbum: (Album, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     var showAll by remember { mutableStateOf(false) }
@@ -877,6 +890,7 @@ fun AlbumsScreen(
     var renameAlbum by remember { mutableStateOf<Album?>(null) }
     var renameText by remember { mutableStateOf("") }
     var deleteAlbum by remember { mutableStateOf<Album?>(null) }
+    var mergeAlbum by remember { mutableStateOf<Album?>(null) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -982,6 +996,41 @@ fun AlbumsScreen(
                         deleteAlbum = album
                     }.padding(vertical = 8.dp)
                 )
+                Text(
+                    stringResource(R.string.merge_into), color = Color.White, fontSize = 15.sp,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        albumOptions = null
+                        mergeAlbum = album
+                    }.padding(vertical = 8.dp)
+                )
+            }
+        }
+    }
+    if (mergeAlbum != null) {
+        val album = mergeAlbum!!
+        Dialog(onDismissRequest = { mergeAlbum = null }) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(CardColor)
+                    .padding(24.dp)
+            ) {
+                Text(stringResource(R.string.merge_into), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(16.dp))
+                all.filter { it.name != album.name }.forEach { target ->
+                    Text(
+                        target.name, color = Color(0xFF0A84FF), fontSize = 15.sp,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            onMergeAlbum(album, target.name)
+                            mergeAlbum = null
+                        }.padding(vertical = 8.dp)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { mergeAlbum = null }) { Text(stringResource(R.string.cancel)) }
+                }
             }
         }
     }
@@ -1118,13 +1167,15 @@ fun ViewerScreen(
     onDeleteToTrash: (MediaItem) -> Unit = {},
     onAddTag: (MediaItem, String) -> Unit = { _, _ -> },
     onRemoveTag: (MediaItem, String) -> Unit = { _, _ -> },
-    onEdit: (MediaItem) -> Unit = {}
+    onEdit: (MediaItem) -> Unit = {},
+    motionAutoplay: Boolean = true
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showDetails by remember { mutableStateOf(false) }
     var showVideoControls by remember { mutableStateOf(true) }
     var videoFullscreen by remember { mutableStateOf(false) }
+    var motionFile by remember { mutableStateOf<java.io.File?>(null) }
     val pagerState = rememberPagerState(initialPage = startIndex.coerceIn(0, (list.size - 1).coerceAtLeast(0))) { list.size }
     BackHandler { onBack() }
     val player = remember {
@@ -1151,11 +1202,29 @@ fun ViewerScreen(
     LaunchedEffect(currentIndex, list) {
         val current = list.getOrNull(currentIndex)
         if (current != null && current.isVideo) {
+            motionFile = null
+            player.repeatMode = androidx.media3.common.Player.REPEAT_MODE_OFF
             player.setMediaItem(ExoMediaItem.fromUri(current.uri))
             player.prepare()
             player.playWhenReady = true
             showVideoControls = true
+        } else if (current != null && motionAutoplay) {
+            val file = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                findMotionVideo(context, current)
+            }
+            motionFile = file
+            if (file != null) {
+                player.repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE
+                player.volume = 0f
+                player.setMediaItem(ExoMediaItem.fromUri(android.net.Uri.fromFile(file)))
+                player.prepare()
+                player.playWhenReady = true
+                showVideoControls = false
+            } else {
+                player.pause()
+            }
         } else {
+            motionFile = null
             player.pause()
         }
     }
@@ -1170,6 +1239,11 @@ fun ViewerScreen(
                 VideoSurface(
                     player = player,
                     onTap = { showVideoControls = !showVideoControls }
+                )
+            } else if (motionFile != null && item.id == list.getOrNull(currentIndex)?.id && page == pagerState.currentPage) {
+                VideoSurface(
+                    player = player,
+                    onTap = { if (player.isPlaying) player.pause() else player.play() }
                 )
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

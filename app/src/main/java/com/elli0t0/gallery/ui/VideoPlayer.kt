@@ -127,6 +127,9 @@ fun VideoControls(
         }
     }
     LaunchedEffect(item.uri) {
+        player.volume = if (isMuted) 0f else 1f
+    }
+    LaunchedEffect(item.uri) {
         frames = withContext(Dispatchers.IO) {
             val out = mutableListOf<Bitmap>()
             try {
