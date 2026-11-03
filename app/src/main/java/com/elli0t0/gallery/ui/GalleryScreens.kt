@@ -4,14 +4,18 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +85,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -175,15 +180,12 @@ private sealed interface PicRow {
 }
 
 /**
- * Reference-style Pictures header: a large centered title with the
- * search and overflow actions on a row below it. The top padding and
- * the title/actions gap match the reference shot's proportions
- * (title center ~16% down the screen, actions ~29% down). The shot
- * shows no collapsed state, so this header stays static on scroll
- * instead of collapsing like the other screens' bars.
+ * RELEASE A: the big Pictures header is a LazyColumn item, so it
+ * scrolls away with the content. Title centered, ~200dp of content
+ * plus the status bar, actions row below the title.
  */
 @Composable
-private fun CenteredPicturesHeader(
+private fun BigHeader(
     title: String,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
@@ -198,7 +200,7 @@ private fun CenteredPicturesHeader(
     ) {
         Text(
             title,
-            fontSize = 28.sp,
+            fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
             textAlign = TextAlign.Center,
@@ -206,10 +208,65 @@ private fun CenteredPicturesHeader(
                 .fillMaxWidth()
                 .padding(top = 80.dp)
         )
-        Spacer(Modifier.height(48.dp))
+        Spacer(Modifier.height(24.dp))
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
+        ) {
+            IconButton(onClick = onSearch) {
+                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search), tint = Color.White)
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more), tint = Color.White)
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.select)) },
+                        onClick = { showMenu = false; onSelectFirst() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.refresh)) },
+                        onClick = { showMenu = false; onRefresh() }
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+/**
+ * RELEASE A: compact pinned bar, black, 56dp, centered title,
+ * icons at the end. Fades in once the big header scrolls away.
+ */
+@Composable
+private fun CompactBar(
+    title: String,
+    onSearch: () -> Unit,
+    onRefresh: () -> Unit,
+    onSelectFirst: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+            .statusBarsPadding()
+            .height(56.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            Modifier.align(Alignment.CenterEnd),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onSearch) {
                 Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search), tint = Color.White)
@@ -265,6 +322,9 @@ fun PicturesScreen(
     val scope = rememberCoroutineScope()
     var dragging by remember { mutableStateOf(false) }
     var dragLabel by remember { mutableStateOf("") }
+    var dragHideJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    // RELEASE A: header item shifts every LazyColumn index by 1 on Pictures.
+    val headerOffset = if (centeredHeader) 1 else 0
     var selected by remember { mutableStateOf<Set<MediaItem>>(emptySet()) }
     val inSelection = selected.isNotEmpty()
     var showTopMenu by remember { mutableStateOf(false) }
@@ -350,9 +410,21 @@ fun PicturesScreen(
         map
     }
     val years = yearToRow.keys.sortedDescending()
+    // RELEASE A: compact bar fades in after the big header scrolls away.
+    // With the header item, list index 0 is the header, so index > 0
+    // or a 250dp scroll offset means the header is gone.
+    val showBar by remember {
+        derivedStateOf {
+            centeredHeader && !inSelection &&
+                (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 250)
+        }
+    }
 
+    // RELEASE A (Pictures tab only): no nestedScroll and no LargeTopAppBar
+    // when not in selection; the big header is a list item instead.
+    val noTopBar = centeredHeader && !inSelection
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = if (noTopBar) Modifier else Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = Color.Black,
         topBar = {
             if (inSelection) {
@@ -372,14 +444,7 @@ fun PicturesScreen(
                     colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = Color.Black),
                     scrollBehavior = scrollBehavior
                 )
-            } else if (centeredHeader) {
-                CenteredPicturesHeader(
-                    title = titleText ?: stringResource(titleRes),
-                    onSearch = onSearch,
-                    onRefresh = onRefresh,
-                    onSelectFirst = { if (items.isNotEmpty()) selected = setOf(items.first()) }
-                )
-            } else {
+            } else if (!centeredHeader) {
                 LargeTopAppBar(
                     title = { Text(titleText ?: stringResource(titleRes), fontWeight = FontWeight.Bold) },
                     actions = {
@@ -416,34 +481,19 @@ fun PicturesScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                    var startDist: Float? = null
-                    var handled = false
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val pressed = event.changes.filter { it.pressed }
-                        if (pressed.size < 2) {
-                            startDist = null
-                            handled = false
-                            continue
-                        }
-                        val d = hypot(
-                            (pressed[0].position.x - pressed[1].position.x).toDouble(),
-                            (pressed[0].position.y - pressed[1].position.y).toDouble()
-                        ).toFloat()
-                        if (startDist == null) {
-                            startDist = d
-                        } else if (!handled) {
-                            val ratio = d / startDist!!
-                            if (ratio > 1.35f) {
-                                columns = (columns - 1).coerceAtLeast(2)
-                                handled = true
-                            } else if (ratio < 0.74f) {
-                                columns = (columns + 1).coerceAtMost(6)
-                                handled = true
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        var acc = 1f
+                        var e: androidx.compose.ui.input.pointer.PointerEvent
+                        do {
+                            e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                            if (e.changes.size >= 2) {
+                                acc *= e.calculateZoom()
+                                if (acc > 1.25f) { columns = (columns - 1).coerceAtLeast(2); acc = 1f }
+                                if (acc < 0.8f) { columns = (columns + 1).coerceAtMost(6); acc = 1f }
+                                e.changes.forEach { it.consume() }
                             }
-                        }
-                    }
+                        } while (e.changes.any { it.pressed })
                     }
                 }
         ) {
@@ -472,7 +522,7 @@ fun PicturesScreen(
                                     val rowInfo = info.visibleItemsInfo.firstOrNull {
                                         y >= it.offset && y < it.offset + it.size
                                     } ?: return@detectDragGesturesAfterLongPress
-                                    val row = rows.getOrNull(rowInfo.index) as? PicRow.GridRow
+                                    val row = rows.getOrNull(rowInfo.index - headerOffset) as? PicRow.GridRow
                                         ?: return@detectDragGesturesAfterLongPress
                                     val width = info.viewportSize.width.coerceAtLeast(1)
                                     val rawColumn = (change.position.x.toInt() * columns / width)
@@ -484,6 +534,16 @@ fun PicturesScreen(
                             }
                         }
                 ) {
+                    if (centeredHeader) {
+                        item(key = "header") {
+                            BigHeader(
+                                title = titleText ?: stringResource(titleRes),
+                                onSearch = onSearch,
+                                onRefresh = onRefresh,
+                                onSelectFirst = { if (items.isNotEmpty()) selected = setOf(items.first()) }
+                            )
+                        }
+                    }
                     itemsIndexed(
                         rows,
                         key = { _, row ->
@@ -541,7 +601,7 @@ fun PicturesScreen(
                                         if (item.isVideo) {
                                             Row(
                                                 Modifier
-                                                    .align(Alignment.BottomStart)
+                                                    .align(Alignment.BottomEnd)
                                                     .padding(6.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
@@ -559,15 +619,25 @@ fun PicturesScreen(
                     }
                 }
             }
+            AnimatedVisibility(
+                visible = showBar,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter)
+            ) {
+                CompactBar(
+                    title = titleText ?: stringResource(titleRes),
+                    onSearch = onSearch,
+                    onRefresh = onRefresh,
+                    onSelectFirst = { if (items.isNotEmpty()) selected = setOf(items.first()) }
+                )
+            }
             if (dragging && years.size > 1) {
-                Row(
+                Column(
                     Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .background(Color.Black)
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 40.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     years.forEach { year ->
                         Box(
@@ -576,7 +646,7 @@ fun PicturesScreen(
                                 .background(Color(0xFF2A2A2A))
                                 .clickable {
                                     scope.launch {
-                                        listState.scrollToItem(yearToRow[year] ?: 0)
+                                        listState.scrollToItem((yearToRow[year] ?: 0) + headerOffset)
                                     }
                                 }
                                 .padding(horizontal = 14.dp, vertical = 6.dp)
@@ -607,9 +677,22 @@ fun PicturesScreen(
                     .fillMaxSize()
                     .pointerInput(rows) {
                         detectVerticalDragGestures(
-                            onDragStart = { dragging = true },
-                            onDragEnd = { dragging = false },
-                            onDragCancel = { dragging = false }
+                            onDragStart = {
+                                dragHideJob?.cancel()
+                                dragging = true
+                            },
+                            onDragEnd = {
+                                dragHideJob = scope.launch {
+                                    kotlinx.coroutines.delay(1000)
+                                    dragging = false
+                                }
+                            },
+                            onDragCancel = {
+                                dragHideJob = scope.launch {
+                                    kotlinx.coroutines.delay(1000)
+                                    dragging = false
+                                }
+                            }
                         ) { change, _ ->
                             val sizeH = size.height.toFloat()
                             if (sizeH <= 0f) return@detectVerticalDragGestures
@@ -624,7 +707,7 @@ fun PicturesScreen(
                                 }
                             }
                             dragLabel = label
-                            scope.launch { listState.scrollToItem(target) }
+                            scope.launch { listState.scrollToItem(target + headerOffset) }
                         }
                     }
             ) {
@@ -641,7 +724,7 @@ fun PicturesScreen(
                 Box(
                     Modifier
                         .align(Alignment.CenterEnd)
-                        .padding(end = 40.dp)
+                        .padding(end = if (years.size > 1) 110.dp else 40.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color(0xFF0A84FF))
                         .padding(horizontal = 20.dp, vertical = 10.dp)

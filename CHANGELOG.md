@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.4]
+
+- RELEASE A, Pictures tab only: big header is now the first LazyColumn item and scrolls away; a compact black 56dp bar with centered title fades in after scrolling.
+- Fast scroller indexes shift +1 for the header item; year pills are a vertical column next to the thumb while dragging, plus the date bubble, both hiding 1s after drag ends.
+- Pinch now reacts only to 2+ fingers and never consumes single-finger drags; video duration badge moved to bottom-end.
+
 ## [0.1.3]
 
 - Round 1 (Pictures tab) fidelity pass against the reference: header is now a large centered title with the search and overflow actions on a row below it (white icons, same Select/Refresh menu); the reference shot shows no collapsed state, so this header stays static on scroll instead of collapsing.
