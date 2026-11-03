@@ -951,6 +951,7 @@ fun ViewerScreen(
     val scope = rememberCoroutineScope()
     var showDetails by remember { mutableStateOf(false) }
     var showVideoControls by remember { mutableStateOf(true) }
+    var videoFullscreen by remember { mutableStateOf(false) }
     val pagerState = rememberPagerState(initialPage = startIndex.coerceIn(0, (list.size - 1).coerceAtLeast(0))) { list.size }
     BackHandler { onBack() }
     val player = remember {
@@ -1014,19 +1015,21 @@ fun ViewerScreen(
                 }
             }
         }
-        Box(
-            Modifier
-                .align(Alignment.TopStart)
-                .padding(8.dp)
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.5f))
-                .clickable { onBack() },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Filled.ArrowBack, null, tint = Color.White)
+        if (!videoFullscreen || showVideoControls) {
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable { onBack() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.ArrowBack, null, tint = Color.White)
+            }
         }
-        if (list.isNotEmpty()) {
+        if (list.isNotEmpty() && (!videoFullscreen || showVideoControls)) {
             Box(
                 Modifier
                     .align(Alignment.TopEnd)
@@ -1050,23 +1053,33 @@ fun ViewerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (current.isVideo && showVideoControls) {
-                    VideoControls(player = player, item = current)
+                    VideoControls(
+                        player = player,
+                        item = current,
+                        isFullscreen = videoFullscreen,
+                        onToggleFullscreen = {
+                            videoFullscreen = !videoFullscreen
+                            showVideoControls = true
+                        }
+                    )
                     Spacer(Modifier.height(8.dp))
                 }
-                ViewerBottomPill(
-                    item = current,
-                    isFavorite = favoriteUris.contains(current.uri.toString()),
-                    onToggleFavorite = {
-                        onToggleFavorite(current, !favoriteUris.contains(current.uri.toString()))
-                    },
-                    onEdit = { onEdit(current) },
-                    onDelete = { onDeleteToTrash(current); onBack() },
-                    onShowDetails = { showDetails = true },
-                    onPrint = { scope.launch { printItem(context, current) } }
-                )
-                Spacer(Modifier.height(12.dp))
-                Filmstrip(list, pagerState.currentPage) { index ->
-                    scope.launch { pagerState.scrollToPage(index) }
+                if (!videoFullscreen) {
+                    ViewerBottomPill(
+                        item = current,
+                        isFavorite = favoriteUris.contains(current.uri.toString()),
+                        onToggleFavorite = {
+                            onToggleFavorite(current, !favoriteUris.contains(current.uri.toString()))
+                        },
+                        onEdit = { onEdit(current) },
+                        onDelete = { onDeleteToTrash(current); onBack() },
+                        onShowDetails = { showDetails = true },
+                        onPrint = { scope.launch { printItem(context, current) } }
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Filmstrip(list, pagerState.currentPage) { index ->
+                        scope.launch { pagerState.scrollToPage(index) }
+                    }
                 }
             }
             if (showDetails) {

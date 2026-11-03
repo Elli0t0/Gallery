@@ -94,4 +94,6 @@
     <string name="update_failed">Could not update</string>
     <string name="invalid_date">Invalid date or time</string>
     <string name="invalid_location">Invalid location</string>
+    <string name="fullscreen">Fullscreen</string>
+    <string name="exit_fullscreen">Exit fullscreen</string>
 </resources>

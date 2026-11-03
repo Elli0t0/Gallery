@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.10]
+
+- Round 5: video time is now "00:03 / 00:09", mute is an icon button, and the player still starts instantly on the current page.
+- Scrub filmstrip now spans the full width with a white playhead line tracking playback and a white border on the current frame; tap a frame to seek.
+- Fullscreen button hides the action pill, filmstrip, and top buttons (tap the video to bring controls back); rotate-screen button is unchanged.
+
 ## [0.0.9]
 
 - Round 4: Details sheet now shows megapixels alongside resolution (date/time, file name, path, size, resolution, MP, and tags were already there).

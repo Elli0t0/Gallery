@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,15 +16,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -94,9 +96,19 @@ fun VideoSurface(player: ExoPlayer, onTap: () -> Unit) {
     }
 }
 
+fun formatVideoTime(ms: Long): String {
+    val s = (ms / 1000).toInt()
+    return "%02d:%02d".format(s / 60, s % 60)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoControls(player: ExoPlayer, item: MediaItem) {
+fun VideoControls(
+    player: ExoPlayer,
+    item: MediaItem,
+    isFullscreen: Boolean = false,
+    onToggleFullscreen: () -> Unit = {}
+) {
     val context = LocalContext.current
     var isPlaying by remember { mutableStateOf(player.isPlaying) }
     var isMuted by remember { mutableStateOf(false) }
@@ -149,16 +161,22 @@ fun VideoControls(player: ExoPlayer, item: MediaItem) {
                 )
             }
             Text(
-                "${formatDuration(position)} / ${formatDuration(duration)}",
+                "${formatVideoTime(position)} / ${formatVideoTime(duration)}",
                 color = Color.White, fontSize = 13.sp
             )
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = {
+            IconButton(onClick = {
                 isMuted = !isMuted
                 player.volume = if (isMuted) 1f else 0f
             }) {
+                Icon(
+                    if (isMuted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp,
+                    null, tint = Color.White, modifier = Modifier.size(24.dp)
+                )
+            }
+            TextButton(onClick = onToggleFullscreen) {
                 Text(
-                    if (isMuted) stringResource(R.string.unmute) else stringResource(R.string.mute),
+                    if (isFullscreen) stringResource(R.string.exit_fullscreen) else stringResource(R.string.fullscreen),
                     color = Color.White, fontSize = 13.sp
                 )
             }
@@ -188,28 +206,51 @@ fun VideoControls(player: ExoPlayer, item: MediaItem) {
             modifier = Modifier.fillMaxWidth()
         )
         if (frames.isNotEmpty()) {
-            LazyRow(
-                Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            androidx.compose.foundation.layout.BoxWithConstraints(
+                Modifier.fillMaxWidth().padding(bottom = 4.dp)
             ) {
-                itemsIndexed(frames) { index, bitmap ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    frames.forEachIndexed { index, bitmap ->
+                        val current = duration > 0 &&
+                            position >= duration * index / frames.size &&
+                            (index == frames.size - 1 || position < duration * (index + 1) / frames.size)
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .size(height = 45.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(
+                                    width = if (current) 2.dp else 0.dp,
+                                    color = if (current) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    val target = duration * index / frames.size
+                                    player.seekTo(target)
+                                    position = target
+                                }
+                        ) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+                if (duration > 0) {
+                    val fraction = (position.toFloat() / duration).coerceIn(0f, 1f)
                     Box(
                         Modifier
-                            .size(width = 80.dp, height = 45.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                val target = duration * index / frames.size
-                                player.seekTo(target)
-                                position = target
-                                            }
-                    ) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                            .align(Alignment.CenterStart)
+                            .offset(x = maxWidth * fraction - 1.dp)
+                            .size(width = 2.dp, height = 45.dp)
+                            .background(Color.White)
+                    )
                 }
             }
         }

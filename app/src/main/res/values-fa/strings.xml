@@ -94,4 +94,6 @@
     <string name="update_failed">به‌روزرسانی نشد</string>
     <string name="invalid_date">تاریخ یا ساعت نامعتبر است</string>
     <string name="invalid_location">مکان نامعتبر است</string>
+    <string name="fullscreen">تمام‌صفحه</string>
+    <string name="exit_fullscreen">خروج از تمام‌صفحه</string>
 </resources>
