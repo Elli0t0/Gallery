@@ -100,7 +100,7 @@ import androidx.compose.ui.window.Dialog
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import coil.video.VideoFrameDecoder
+import coil.decode.VideoFrameDecoder
 import com.elli0t0.gallery.R
 import com.elli0t0.gallery.data.Album
 import com.elli0t0.gallery.data.MediaItem
