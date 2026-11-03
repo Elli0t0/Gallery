@@ -80,6 +80,22 @@ fun formatDateTime(ms: Long): String {
     return SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(Date(ms))
 }
 
+fun launchExternalEditor(context: Context, item: MediaItem) {
+    try {
+        val intent = Intent(Intent.ACTION_EDIT).apply {
+            setDataAndType(item.uri, item.mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+        if (intent.resolveActivity(context.packageManager) == null) {
+            Toast.makeText(context, R.string.no_editor_found, Toast.LENGTH_SHORT).show()
+            return
+        }
+        context.startActivity(Intent.createChooser(intent, null))
+    } catch (_: Exception) {
+        Toast.makeText(context, R.string.no_editor_found, Toast.LENGTH_SHORT).show()
+    }
+}
+
 fun shareItem(context: Context, item: MediaItem) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = item.mimeType
@@ -200,7 +216,7 @@ fun Filmstrip(
                     .border(2.dp, borderColor, RoundedCornerShape(10.dp))
                     .clickable { onSelect(index) }
             ) {
-                Thumb(item, Modifier.fillMaxWidth().aspectRatio(1f))
+                Thumb(item, Modifier.fillMaxWidth().aspectRatio(1f), sizePx = 128)
             }
         }
     }

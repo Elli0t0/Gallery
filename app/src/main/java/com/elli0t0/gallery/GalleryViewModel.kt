@@ -1,12 +1,17 @@
 package com.elli0t0.gallery
 
 import android.app.Application
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.elli0t0.gallery.data.Album
 import com.elli0t0.gallery.data.MediaItem
 import com.elli0t0.gallery.data.MediaRepository
 import com.elli0t0.gallery.data.Store
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -25,16 +30,32 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
     private val _tags = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
     val tags: StateFlow<Map<String, Set<String>>> = _tags
 
+    private var loadJob: Job? = null
+    private val mediaObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            load()
+        }
+    }
+
     init {
         val context = getApplication<Application>()
         viewModelScope.launch { Store.favorites(context).collect { _favorites.value = it } }
         viewModelScope.launch { Store.trash(context).collect { _trash.value = it } }
         viewModelScope.launch { Store.settings(context).collect { _settings.value = it } }
         viewModelScope.launch { Store.tags(context).collect { _tags.value = it } }
+        val resolver = context.contentResolver
+        resolver.registerContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, mediaObserver)
+        resolver.registerContentObserver(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, mediaObserver)
+    }
+
+    override fun onCleared() {
+        getApplication<Application>().contentResolver.unregisterContentObserver(mediaObserver)
+        super.onCleared()
     }
 
     fun load() {
-        viewModelScope.launch {
+        if (loadJob?.isActive == true) return
+        loadJob = viewModelScope.launch {
             _loading.value = true
             val context = getApplication<Application>()
             val all = MediaRepository.loadAll(context)

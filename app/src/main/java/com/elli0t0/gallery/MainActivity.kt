@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -45,8 +47,8 @@ import com.elli0t0.gallery.ui.PillNav
 import com.elli0t0.gallery.ui.SearchScreen
 import com.elli0t0.gallery.ui.SettingsScreen
 import com.elli0t0.gallery.ui.TrashScreen
-import com.elli0t0.gallery.ui.EditorScreen
 import com.elli0t0.gallery.ui.ViewerScreen
+import com.elli0t0.gallery.ui.launchExternalEditor
 
 class MainActivity : ComponentActivity() {
 
@@ -63,11 +65,17 @@ class MainActivity : ComponentActivity() {
         data object Settings : Screen
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (hasMediaPermission()) viewModel.load()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             GalleryTheme {
                 val items by viewModel.items.collectAsState()
+                val loading by viewModel.loading.collectAsState()
                 val favorites by viewModel.favorites.collectAsState()
                 val tags by viewModel.tags.collectAsState()
                 val trash by viewModel.trash.collectAsState()
@@ -77,15 +85,18 @@ class MainActivity : ComponentActivity() {
                 var tab by remember { mutableStateOf(0) }
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
                 var selectionActive by remember { mutableStateOf(false) }
+                val homeListState = rememberLazyListState()
+                val activityContext = androidx.compose.ui.platform.LocalContext.current
+
+                BackHandler(enabled = screen != Screen.Home || tab != 0) {
+                    screen = Screen.Home
+                    tab = 0
+                }
 
                 val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
                 ) { result ->
                     granted = hasMediaPermission() || result.values.any { it }
-                    if (granted) viewModel.load()
-                }
-
-                LaunchedEffect(granted) {
                     if (granted) viewModel.load()
                 }
 
@@ -130,22 +141,18 @@ class MainActivity : ComponentActivity() {
                 }
                 LaunchedEffect(screen) { selectionActive = false }
 
-                var editorItem by remember { mutableStateOf<MediaItem?>(null) }
-                val editing = editorItem
-                if (editing != null) {
-                    EditorScreen(item = editing, onClose = { editorItem = null })
-                } else when (val current = screen) {
+                when (val current = screen) {
                     is Screen.Viewer -> ViewerScreen(
                         list = current.list,
                         startIndex = current.index,
-                        onBack = { screen = Screen.Home },
+                        onBack = { screen = Screen.Home; tab = 0 },
                         favoriteUris = favorites,
                         tags = tags,
                         onToggleFavorite = { item, add -> viewModel.setFavorites(listOf(item), add) },
                         onDeleteToTrash = { item -> viewModel.moveToTrash(listOf(item)) },
                         onAddTag = { item, tag -> viewModel.setTag(item, tag, true) },
                         onRemoveTag = { item, tag -> viewModel.setTag(item, tag, false) },
-                        onEdit = { editorItem = it }
+                        onEdit = { launchExternalEditor(activityContext, it) }
                     )
                     is Screen.AlbumDetail -> {
                         Box(Modifier.fillMaxSize()) {
@@ -156,6 +163,7 @@ class MainActivity : ComponentActivity() {
                                 onRefresh = { viewModel.load() },
                                 titleText = current.album.name,
                                 albumNames = albumNames,
+                                isLoading = loading,
                                 onMoveToTrash = { viewModel.moveToTrash(it) },
                                 onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
                                 onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
@@ -181,6 +189,7 @@ class MainActivity : ComponentActivity() {
                                 onRefresh = { viewModel.load() },
                                 titleRes = current.titleRes,
                                 albumNames = albumNames,
+                                isLoading = loading,
                                 onMoveToTrash = { viewModel.moveToTrash(it) },
                                 onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
                                 onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
@@ -229,6 +238,8 @@ class MainActivity : ComponentActivity() {
                                     onSearch = { screen = Screen.Search },
                                     onRefresh = { viewModel.load() },
                                     albumNames = albumNames,
+                                    isLoading = loading,
+                                    externalListState = homeListState,
                                     onMoveToTrash = { viewModel.moveToTrash(it) },
                                     onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
                                     onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },

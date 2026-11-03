@@ -1,7 +1,9 @@
 package com.elli0t0.gallery.ui
 
+import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -9,8 +11,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -52,6 +54,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,15 +69,22 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.media3.common.MediaItem as ExoMediaItem
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -87,8 +97,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.video.VideoFrameDecoder
 import com.elli0t0.gallery.R
 import com.elli0t0.gallery.data.Album
 import com.elli0t0.gallery.data.MediaItem
@@ -104,11 +116,21 @@ fun formatDuration(ms: Long): String {
     return "%d:%02d".format(s / 60, s % 60)
 }
 
+private object ThumbLoader {
+    private var loader: ImageLoader? = null
+    fun get(context: Context): ImageLoader {
+        return loader ?: ImageLoader.Builder(context.applicationContext)
+            .components { add(VideoFrameDecoder.Factory()) }
+            .build().also { loader = it }
+    }
+}
+
 @Composable
-fun Thumb(item: MediaItem, modifier: Modifier = Modifier) {
+fun Thumb(item: MediaItem, modifier: Modifier = Modifier, sizePx: Int = 360) {
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            .data(item.uri).size(360).crossfade(false).build(),
+            .data(item.uri).size(sizePx).crossfade(false).build(),
+        imageLoader = ThumbLoader.get(LocalContext.current),
         contentDescription = item.displayName,
         contentScale = ContentScale.Crop,
         modifier = modifier.background(Color(0xFF1A1A1A))
@@ -147,6 +169,8 @@ fun PicturesScreen(
     titleText: String? = null,
     titleRes: Int = R.string.pictures,
     albumNames: List<String> = emptyList(),
+    isLoading: Boolean = false,
+    externalListState: LazyListState? = null,
     onMoveToTrash: (List<MediaItem>) -> Unit = {},
     onCopyToAlbum: (List<MediaItem>, String, Boolean) -> Unit = { _, _, _ -> },
     onToggleFavorites: (List<MediaItem>, Boolean) -> Unit = { _, _ -> },
@@ -155,7 +179,7 @@ fun PicturesScreen(
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var columns by remember { mutableStateOf(4) }
-    val listState = rememberLazyListState()
+    val listState = externalListState ?: rememberLazyListState()
     val scope = rememberCoroutineScope()
     var dragging by remember { mutableStateOf(false) }
     var dragLabel by remember { mutableStateOf("") }
@@ -167,6 +191,7 @@ fun PicturesScreen(
     var albumDialogMode by remember { mutableStateOf<String?>(null) }
     var albumName by remember { mutableStateOf("") }
     LaunchedEffect(inSelection) { onSelectionChanged(inSelection) }
+    BackHandler(enabled = inSelection) { selected = emptySet() }
     fun shareSelected() {
         val list = selected.toList()
         if (list.isEmpty()) return
@@ -314,7 +339,11 @@ fun PicturesScreen(
         ) {
             if (items.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.empty_gallery), color = Color.Gray)
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White)
+                    } else {
+                        Text(stringResource(R.string.empty_gallery), color = Color.Gray)
+                    }
                 }
             } else {
                 LazyColumn(
@@ -683,32 +712,56 @@ fun ViewerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showDetails by remember { mutableStateOf(false) }
+    var showVideoControls by remember { mutableStateOf(true) }
     val pagerState = rememberPagerState(initialPage = startIndex.coerceIn(0, (list.size - 1).coerceAtLeast(0))) { list.size }
+    BackHandler { onBack() }
+    val player = remember {
+        ExoPlayer.Builder(context).build()
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, player) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) player.pause()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            player.release()
+        }
+    }
+    val currentIndex = pagerState.currentPage.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+    LaunchedEffect(showVideoControls, currentIndex) {
+        if (showVideoControls) {
+            kotlinx.coroutines.delay(3000)
+            showVideoControls = false
+        }
+    }
+    LaunchedEffect(currentIndex, list) {
+        val current = list.getOrNull(currentIndex)
+        if (current != null && current.isVideo) {
+            player.setMediaItem(ExoMediaItem.fromUri(current.uri))
+            player.prepare()
+            player.playWhenReady = true
+            showVideoControls = true
+        } else {
+            player.pause()
+        }
+    }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            key = { list[it].id }
+        ) { page ->
             val item = list[page]
-            var scale by remember(item.id) { mutableStateOf(1f) }
-            var offset by remember(item.id) { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-            val transformState = rememberTransformableState { zoomChange, panChange, _ ->
-                scale = (scale * zoomChange).coerceIn(1f, 4f)
-                if (scale > 1f) offset += panChange else offset = androidx.compose.ui.geometry.Offset.Zero
-            }
             if (item.isVideo && page == pagerState.currentPage) {
-                VideoPlayer(item)
+                VideoSurface(
+                    player = player,
+                    onTap = { showVideoControls = !showVideoControls }
+                )
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context).data(item.uri).crossfade(false).build(),
-                        contentDescription = item.displayName,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(
-                                scaleX = scale, scaleY = scale,
-                                translationX = offset.x, translationY = offset.y
-                            )
-                            .transformable(transformState)
-                    )
+                    ZoomableImage(item)
                     if (item.isVideo) {
                         Box(
                             Modifier
@@ -727,13 +780,18 @@ fun ViewerScreen(
             Icon(Icons.Filled.ArrowBack, null, tint = Color.White)
         }
         if (list.isNotEmpty()) {
-            val current = list[pagerState.currentPage.coerceIn(0, list.size - 1)]
+            val current = list[currentIndex]
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                if (current.isVideo && showVideoControls) {
+                    VideoControls(player = player, item = current)
+                    Spacer(Modifier.height(8.dp))
+                }
                 ViewerBottomPill(
                     item = current,
                     isFavorite = favoriteUris.contains(current.uri.toString()),
@@ -761,6 +819,70 @@ fun ViewerScreen(
             }
         }
     }
+}
+
+@Composable
+fun ZoomableImage(item: MediaItem) {
+    val context = LocalContext.current
+    var scale by remember(item.id) { mutableStateOf(1f) }
+    var offset by remember(item.id) { mutableStateOf(Offset.Zero) }
+    AsyncImage(
+        model = ImageRequest.Builder(context).data(item.uri).crossfade(false).build(),
+        imageLoader = ThumbLoader.get(context),
+        contentDescription = item.displayName,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer(
+                scaleX = scale, scaleY = scale,
+                translationX = offset.x, translationY = offset.y
+            )
+            .pointerInput(item.id) {
+                awaitPointerEventScope {
+                    var prevDist: Float? = null
+                    var prevCentroid: Offset? = null
+                    var prevSingle: Offset? = null
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.size >= 2) {
+                            val first = pressed[0].position
+                            val second = pressed[1].position
+                            val dist = kotlin.math.hypot(
+                                (first.x - second.x).toDouble(),
+                                (first.y - second.y).toDouble()
+                            ).toFloat()
+                            val centroid = (first + second) / 2f
+                            if (prevDist != null && prevCentroid != null) {
+                                scale = (scale * (dist / prevDist!!)).coerceIn(1f, 4f)
+                                if (scale <= 1f) {
+                                    offset = Offset.Zero
+                                } else {
+                                    offset += (centroid - prevCentroid!!)
+                                }
+                            }
+                            prevDist = dist
+                            prevCentroid = centroid
+                            prevSingle = null
+                            pressed.forEach { it.consume() }
+                        } else if (pressed.size == 1) {
+                            val pos = pressed[0].position
+                            if (scale > 1f && prevSingle != null) {
+                                offset += (pos - prevSingle!!)
+                                pressed[0].consume()
+                            }
+                            prevSingle = pos
+                            prevDist = null
+                            prevCentroid = null
+                        } else {
+                            prevDist = null
+                            prevCentroid = null
+                            prevSingle = null
+                        }
+                    }
+                }
+            }
+    )
 }
 
 @Composable

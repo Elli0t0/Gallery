@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.6]
+
+- Round 1 bugfixes: viewer swipe via HorizontalPager with item keys, pinch-zoom that only consumes gestures when zoomed, and back handling (viewer to grid at the same scroll position, selection back clears selection, other tabs back to Pictures, Pictures back exits).
+- First launch: media loads only after permission is granted, reloads on resume, and a MediaStore ContentObserver refreshes the grid when files change; a loading spinner shows until the first query finishes.
+- Video: one ExoPlayer per viewer, tap to show controls that auto-hide after 3 s, play/pause toggles playWhenReady, audio pauses on ON_STOP and the player releases when the viewer closes, and the bottom layout is one column (video controls, action pill, filmstrip) with navigation bar padding.
+- Filmstrip thumbnails are real Coil 128 px thumbs, including video frames via coil-video, instead of black squares.
+- No internal photo editor: the edit button now launches ACTION_EDIT with read/write URI flags (generic chooser, toast if no editor is installed); the editor app's package was not named in the plan, so no explicit package or package-specific query was added yet.
+- New adaptive vector launcher icon: dark background with a photo/mountain glyph.
+
 ## [0.0.5]
 
 - Photo editor part 1, opened from the viewer pill's edit button: undo/redo, Revert, Save, and a menu with Save copy, Resize, Copy edits, Paste edits.
