@@ -84,4 +84,14 @@
     <string name="add_tag">Add tag</string>
     <string name="add">Add</string>
     <string name="no_editor_found">No photo editor installed</string>
+    <string name="edit_date_time">Edit date and time</string>
+    <string name="edit_location">Edit location</string>
+    <string name="date_hint">Date (YYYY-MM-DD)</string>
+    <string name="time_hint">Time (HH:MM)</string>
+    <string name="latitude">Latitude</string>
+    <string name="longitude">Longitude</string>
+    <string name="updated">Updated</string>
+    <string name="update_failed">Could not update</string>
+    <string name="invalid_date">Invalid date or time</string>
+    <string name="invalid_location">Invalid location</string>
 </resources>

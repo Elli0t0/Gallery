@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.7]
+
+- Round 2: selection More menu now also has Add tag, Edit date and time, and Edit location, alongside Copy/Move to album and favorites; date/time and location are written back to MediaStore, with a toast when an update is not allowed.
+- Search now normalizes Persian/Arabic text: Arabic yeh/kaf unified to Persian, alef variants unified, tashkeel, tatweel and ZWNJ/ZWJ stripped, and Persian/Arabic digits converted to ASCII, with all query tokens required to match.
+- Favorites, trash (30 days), Recent, Videos, Locations, Menu popup, and Settings (DataStore) are already in the app and unchanged in this round.
+
 ## [0.0.6]
 
 - Round 1 bugfixes: viewer swipe via HorizontalPager with item keys, pinch-zoom that only consumes gestures when zoomed, and back handling (viewer to grid at the same scroll position, selection back clears selection, other tabs back to Pictures, Pictures back exits).

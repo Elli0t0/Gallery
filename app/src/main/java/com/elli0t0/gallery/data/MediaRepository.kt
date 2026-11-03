@@ -124,6 +124,37 @@ object MediaRepository {
             copied
         }
 
+    suspend fun updateDateTime(context: Context, items: List<MediaItem>, dateMs: Long): Int =
+        withContext(Dispatchers.IO) {
+            var updated = 0
+            items.forEach { item ->
+                try {
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DATE_TAKEN, dateMs)
+                    }
+                    if (context.contentResolver.update(item.uri, values, null, null) > 0) updated++
+                } catch (_: Exception) {
+                }
+            }
+            updated
+        }
+
+    suspend fun updateLocation(context: Context, items: List<MediaItem>, lat: Double, lng: Double): Int =
+        withContext(Dispatchers.IO) {
+            var updated = 0
+            items.forEach { item ->
+                try {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Images.Media.LATITUDE, lat)
+                        put(MediaStore.Images.Media.LONGITUDE, lng)
+                    }
+                    if (context.contentResolver.update(item.uri, values, null, null) > 0) updated++
+                } catch (_: Exception) {
+                }
+            }
+            updated
+        }
+
     suspend fun deletePermanently(context: Context, items: List<MediaItem>) {
         withContext(Dispatchers.IO) {
             items.forEach { item ->

@@ -167,6 +167,9 @@ class MainActivity : ComponentActivity() {
                                 onMoveToTrash = { viewModel.moveToTrash(it) },
                                 onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
                                 onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
+                                onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
+                                onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
+                                onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
                                 onSelectionChanged = { selectionActive = it }
                             )
                             if (!selectionActive) {
@@ -193,6 +196,9 @@ class MainActivity : ComponentActivity() {
                                 onMoveToTrash = { viewModel.moveToTrash(it) },
                                 onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
                                 onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
+                                onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
+                                onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
+                                onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
                                 onSelectionChanged = { selectionActive = it }
                             )
                             if (!selectionActive) {
@@ -243,6 +249,9 @@ class MainActivity : ComponentActivity() {
                                     onMoveToTrash = { viewModel.moveToTrash(it) },
                                     onCopyToAlbum = { selected, name, move -> viewModel.copyToAlbum(selected, name, move) },
                                     onToggleFavorites = { selected, add -> viewModel.setFavorites(selected, add) },
+                                    onAddTagToSelected = { selected, tag -> selected.forEach { viewModel.setTag(it, tag, true) } },
+                                    onEditDateTime = { selected, ms -> viewModel.editDateTime(selected, ms) },
+                                    onEditLocation = { selected, lat, lng -> viewModel.editLocation(selected, lat, lng) },
                                     onSelectionChanged = { selectionActive = it }
                                 )
                             } else {

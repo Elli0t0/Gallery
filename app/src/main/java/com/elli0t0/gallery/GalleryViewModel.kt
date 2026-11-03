@@ -2,6 +2,7 @@ package com.elli0t0.gallery
 
 import android.app.Application
 import android.database.ContentObserver
+import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
@@ -117,6 +118,32 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
             val context = getApplication<Application>()
             MediaRepository.copyToAlbum(context, items, albumName, move)
             load()
+        }
+    }
+
+    fun editDateTime(items: List<MediaItem>, dateMs: Long) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val updated = MediaRepository.updateDateTime(context, items, dateMs)
+            if (updated > 0) {
+                load()
+                Toast.makeText(context, R.string.updated, Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, R.string.update_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun editLocation(items: List<MediaItem>, lat: Double, lng: Double) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val updated = MediaRepository.updateLocation(context, items, lat, lng)
+            if (updated > 0) {
+                load()
+                Toast.makeText(context, R.string.updated, Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, R.string.update_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

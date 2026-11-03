@@ -55,15 +55,39 @@ import com.elli0t0.gallery.R
 import com.elli0t0.gallery.data.MediaItem
 import com.elli0t0.gallery.data.Store
 
+fun normalizeSearchText(text: String): String {
+    val digitMap = mapOf(
+        '۰' to '0', '۱' to '1', '۲' to '2', '۳' to '3', '۴' to '4',
+        '۵' to '5', '۶' to '6', '۷' to '7', '۸' to '8', '۹' to '9',
+        '٠' to '0', '١' to '1', '٢' to '2', '٣' to '3', '٤' to '4',
+        '٥' to '5', '٦' to '6', '٧' to '7', '٨' to '8', '٩' to '9'
+    )
+    val out = StringBuilder()
+    for (ch in text.lowercase()) {
+        when (ch) {
+            'ي', 'ى' -> out.append('ی')
+            'ك' -> out.append('ک')
+            'أ', 'إ', 'آ' -> out.append('ا')
+            'ة' -> out.append('ه')
+            'ـ' -> Unit
+            '\u200C', '\u200D' -> Unit
+            in 'ً'..'ٓ', 'ٔ', 'ٰ' -> Unit
+            else -> out.append(digitMap[ch] ?: ch)
+        }
+    }
+    return out.toString()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(items: List<MediaItem>, onOpen: (List<MediaItem>, Int) -> Unit, onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     val results = remember(query, items) {
-        if (query.isBlank()) emptyList()
-        else items.filter {
-            it.displayName.contains(query, ignoreCase = true) ||
-                it.bucket.contains(query, ignoreCase = true)
+        val tokens = normalizeSearchText(query).split(" ", "\n", "\t").filter { it.isNotBlank() }
+        if (tokens.isEmpty()) emptyList()
+        else items.filter { item ->
+            val haystack = normalizeSearchText(item.displayName + " " + item.bucket)
+            tokens.all { haystack.contains(it) }
         }
     }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())

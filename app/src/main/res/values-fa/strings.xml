@@ -84,4 +84,14 @@
     <string name="add_tag">افزودن برچسب</string>
     <string name="add">افزودن</string>
     <string name="no_editor_found">ویرایشگر عکس نصب نشده است</string>
+    <string name="edit_date_time">ویرایش تاریخ و ساعت</string>
+    <string name="edit_location">ویرایش مکان</string>
+    <string name="date_hint">تاریخ (YYYY-MM-DD)</string>
+    <string name="time_hint">ساعت (HH:MM)</string>
+    <string name="latitude">عرض جغرافیایی</string>
+    <string name="longitude">طول جغرافیایی</string>
+    <string name="updated">به‌روزرسانی شد</string>
+    <string name="update_failed">به‌روزرسانی نشد</string>
+    <string name="invalid_date">تاریخ یا ساعت نامعتبر است</string>
+    <string name="invalid_location">مکان نامعتبر است</string>
 </resources>

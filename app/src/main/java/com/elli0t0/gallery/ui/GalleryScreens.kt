@@ -174,6 +174,9 @@ fun PicturesScreen(
     onMoveToTrash: (List<MediaItem>) -> Unit = {},
     onCopyToAlbum: (List<MediaItem>, String, Boolean) -> Unit = { _, _, _ -> },
     onToggleFavorites: (List<MediaItem>, Boolean) -> Unit = { _, _ -> },
+    onAddTagToSelected: (List<MediaItem>, String) -> Unit = { _, _ -> },
+    onEditDateTime: (List<MediaItem>, Long) -> Unit = { _, _ -> },
+    onEditLocation: (List<MediaItem>, Double, Double) -> Unit = { _, _, _ -> },
     onSelectionChanged: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -190,6 +193,14 @@ fun PicturesScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var albumDialogMode by remember { mutableStateOf<String?>(null) }
     var albumName by remember { mutableStateOf("") }
+    var tagDialog by remember { mutableStateOf(false) }
+    var tagText by remember { mutableStateOf("") }
+    var dateDialog by remember { mutableStateOf(false) }
+    var dateText by remember { mutableStateOf("") }
+    var timeText by remember { mutableStateOf("") }
+    var locationDialog by remember { mutableStateOf(false) }
+    var latText by remember { mutableStateOf("") }
+    var lngText by remember { mutableStateOf("") }
     LaunchedEffect(inSelection) { onSelectionChanged(inSelection) }
     BackHandler(enabled = inSelection) { selected = emptySet() }
     fun shareSelected() {
@@ -498,6 +509,39 @@ fun PicturesScreen(
                                     text = { Text(stringResource(R.string.remove_from_favorites)) },
                                     onClick = { showMoreMenu = false; onToggleFavorites(selected.toList(), false); selected = emptySet() }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.add_tag)) },
+                                    onClick = { showMoreMenu = false; tagText = ""; tagDialog = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_date_time)) },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        val first = selected.firstOrNull()
+                                        val cal = java.util.Calendar.getInstance()
+                                        if (first != null) cal.timeInMillis = first.dateTakenMs
+                                        dateText = "%04d-%02d-%02d".format(
+                                            cal.get(java.util.Calendar.YEAR),
+                                            cal.get(java.util.Calendar.MONTH) + 1,
+                                            cal.get(java.util.Calendar.DAY_OF_MONTH)
+                                        )
+                                        timeText = "%02d:%02d".format(
+                                            cal.get(java.util.Calendar.HOUR_OF_DAY),
+                                            cal.get(java.util.Calendar.MINUTE)
+                                        )
+                                        dateDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.edit_location)) },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        val first = selected.firstOrNull()
+                                        latText = first?.latitude?.toString() ?: ""
+                                        lngText = first?.longitude?.toString() ?: ""
+                                        locationDialog = true
+                                    }
+                                )
                             }
                         }
                     }
@@ -518,6 +562,117 @@ fun PicturesScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.cancel)) }
+                }
+            )
+        }
+        if (tagDialog) {
+            AlertDialog(
+                onDismissRequest = { tagDialog = false },
+                title = { Text(stringResource(R.string.add_tag)) },
+                text = {
+                    TextField(
+                        value = tagText,
+                        onValueChange = { tagText = it },
+                        label = { Text(stringResource(R.string.add_tag)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = tagText.isNotBlank(),
+                        onClick = {
+                            tagDialog = false
+                            onAddTagToSelected(selected.toList(), tagText.trim())
+                            selected = emptySet()
+                        }
+                    ) { Text(stringResource(R.string.confirm)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { tagDialog = false }) { Text(stringResource(R.string.cancel)) }
+                }
+            )
+        }
+        if (dateDialog) {
+            AlertDialog(
+                onDismissRequest = { dateDialog = false },
+                title = { Text(stringResource(R.string.edit_date_time)) },
+                text = {
+                    Column {
+                        TextField(
+                            value = dateText,
+                            onValueChange = { dateText = it },
+                            label = { Text(stringResource(R.string.date_hint)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TextField(
+                            value = timeText,
+                            onValueChange = { timeText = it },
+                            label = { Text(stringResource(R.string.time_hint)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        try {
+                            val parsed = SimpleDateFormat(
+                                "yyyy-MM-dd HH:mm", Locale.getDefault()
+                            ).parse("$dateText $timeText") ?: throw IllegalArgumentException()
+                            dateDialog = false
+                            onEditDateTime(selected.toList(), parsed.time)
+                            selected = emptySet()
+                        } catch (_: Exception) {
+                            Toast.makeText(context, R.string.invalid_date, Toast.LENGTH_SHORT).show()
+                        }
+                    }) { Text(stringResource(R.string.confirm)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { dateDialog = false }) { Text(stringResource(R.string.cancel)) }
+                }
+            )
+        }
+        if (locationDialog) {
+            AlertDialog(
+                onDismissRequest = { locationDialog = false },
+                title = { Text(stringResource(R.string.edit_location)) },
+                text = {
+                    Column {
+                        TextField(
+                            value = latText,
+                            onValueChange = { latText = it },
+                            label = { Text(stringResource(R.string.latitude)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TextField(
+                            value = lngText,
+                            onValueChange = { lngText = it },
+                            label = { Text(stringResource(R.string.longitude)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val lat = latText.toDoubleOrNull()
+                        val lng = lngText.toDoubleOrNull()
+                        if (lat == null || lng == null || lat !in -90.0..90.0 || lng !in -180.0..180.0) {
+                            Toast.makeText(context, R.string.invalid_location, Toast.LENGTH_SHORT).show()
+                        } else {
+                            locationDialog = false
+                            onEditLocation(selected.toList(), lat, lng)
+                            selected = emptySet()
+                        }
+                    }) { Text(stringResource(R.string.confirm)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { locationDialog = false }) { Text(stringResource(R.string.cancel)) }
                 }
             )
         }
